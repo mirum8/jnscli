@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<body>
+<form method="post" autocomplete="off" name="parameters" action="build?delay=0sec">
+    <div width="100%" class="parameters">
+        <div class="jenkins-form-item tr ">
+            <div class="jenkins-form-label help-sibling">REFERENCE_1</div>
+            <div class="setting-main">
+                <div name="parameter"><input name="name" type="hidden" value="PARENT_CHOICE"><select name="value">
+                    <option value="option1" selected="true">Option 1</option>
+                    <option value="option2">Option 2</option>
+                    <option value="option3">Option 3</option>
+                </select></div>
+            </div>
+        </div>
+
+        <div class="jenkins-form-item tr ">
+            <div class="jenkins-form-label help-sibling">REFERENCE_2</div>
+            <div class="setting-main">
+                <div name="parameter"><input name="name" type="hidden" value="REFERENCE_2"><select name="value">
+                    <option value="optionA" selected="true">Option A</option>
+                    <option value="optionB">Option B</option>
+                    <option value="optionC">Option C</option>
+                </select></div>
+            </div>
+        </div>
+
+        <div class="jenkins-form-item tr ">
+            <div class="jenkins-form-label help-sibling">ACTIVE_CHOICE</div>
+            <div class="setting-main">
+                <div name="parameter" description="" id="choice-parameter-123456789"
+                     class="active-choice"><input name="name" type="hidden" value="ACTIVE_CHOICE"><select
+                        name="value"></select></div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var referencedParameters = Array();
+            referencedParameters.push("REFERENCE_1");
+            referencedParameters.push("REFERENCE_2");
+
+            var cascadeChoiceParameter = makeStaplerProxy('/$stapler/bound/abcdef12-3456-7890-abcd-ef1234567890', 'security_token_1234567890abcdef1234567890abcdef', ['doUpdate', 'getChoicesForUI']);
+
+            UnoChoice.renderCascadeChoiceParameter('#choice-parameter-123456789', false, 'ACTIVE_CHOICE', 'choice-parameter-123456789', 1, 'choice-parameter-123456789', referencedParameters, cascadeChoiceParameter);
+        </script>
+
+    </div>
+</form>
+</body>
+</html>

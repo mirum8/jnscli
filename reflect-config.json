@@ -1,0 +1,172 @@
+[
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.ViewAll",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.ViewAll$AssignedLabel",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Job",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.ViewAll$OverallLoad",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.ViewAll$PrimaryView",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.ViewAll$UnlabeledLoad",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.ViewAll$View",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowJob",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowJob$Build",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowJob$HealthReport",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowJob$Property",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowJob$Property$ParameterDefinition",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowJob$Property$ParameterDefinition$DefaultParameterValue",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowRun",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowRun$Stage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.WorkflowRun$StageFlowNode",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.StageDescription",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.StageDescription$FlowNode",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.NodeLog",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.list.JobRow",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Folder",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Folder$Action",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Folder$View",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Run",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Run$Stage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.BuildInfo",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.BuildInfo$Action",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.BuildInfo$Action$Parameter",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.BuildInfo$Action$Cause",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.BuildInfo$Action$Build",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.QueueItem",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.QueueItem$Task",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.QueueItem$QueueItemType",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.QueueItemLocation",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  }
+]
