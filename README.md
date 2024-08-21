@@ -28,14 +28,14 @@ Download the binary for your platform:
 
 ```shell
 # for x86-64
-curl -s https://mirum8.github.io/jnscli/jns-x86-64 -o jns \
-&& chmod +x jns && mkdir -p $HOME/.local/bin/ \
-&& mv jns $HOME/.local/bin/
+wget -O jns-0.0.1-amd64 https://github.com/mirum8/jnscli/releases/download/v0.0.1/jns-0.0.1-amd64 \
+&& chmod +x jns-0.0.1-amd64 && mkdir -p $HOME/.local/bin/ \
+&& mv jns-0.0.1-amd64 $HOME/.local/bin/jns
 
 # for ARM (Apple M1)
-curl -s https://mirum8.github.io/jnscli/jns-arm64 -o jns \
-&& chmod +x jns && mkdir -p $HOME/.local/bin/ \
-&& mv jns $HOME/.local/bin/
+wget -O jns-0.0.1-arm64 https://github.com/mirum8/jnscli/releases/download/v0.0.1/jns-0.0.1-arm64 \
+&& chmod +x jns-0.0.1-arm64 && mkdir -p $HOME/.local/bin/ \
+&& mv jns-0.0.1-arm64 $HOME/.local/bin/jns
 ```
 
 Add the binary to your PATH:
@@ -74,11 +74,20 @@ jns build <jobId>
 ### Steps
 
 ```shell
-git clone https://mirum8.github.io/jnscli.git \
-&& cd jenkins-cli \
-&& ./mvnw clean native:compile -Pnativ \
-&& mkdir -p $HOME/.local/bin/ && echo "export PATH=\$PATH:$HOME/.local/bin/" >> $HOME/.bashrc && source $HOME/.bashrc \
+git clone https://github.com/mirum8/jnscli.git \
+&& cd jnscli \
+&& ./mvnw clean native:compile -Pnative \
+&& mkdir -p $HOME/.local/bin/ \
 && mv target/jns $HOME/.local/bin/jns
+```
+
+Add the binary to your PATH:
+
+```shell
+# for bash
+echo "export PATH=\$PATH:$HOME/.local/bin/" >> $HOME/.bashrc && source $HOME/.bashrc
+# for zsh
+echo "export PATH=\$PATH:$HOME/.local/bin/" >> $HOME/.zshrc && source $HOME/.zshrc
 ```
 
 ## Features
