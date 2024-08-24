@@ -20,8 +20,8 @@ public class InfoCommand {
                      @Option(longNames = "includeFailed", shortNames = 'f') boolean includeFailed,
                      @Option(longNames = "includeRunning", shortNames = 'r') boolean includeRunning,
                      @Option(longNames = "limit", shortNames = 'l', defaultValue = "3") Integer limit,
-                     @Option(longNames = "me", shortNames = 'm') boolean buildsRunByMe) {
-        infoService.info(jobId, buildNumber, includeSuccess, includeFailed, includeRunning, limit, buildsRunByMe);
+                     @Option(longNames = "my-builds", shortNames = 'm') boolean onlyMyBuilds) {
+        infoService.info(jobId, buildNumber, includeSuccess, includeFailed, includeRunning, limit, onlyMyBuilds);
     }
 
     @Command(command = "builds", description = "Get information about job builds")
@@ -30,7 +30,7 @@ public class InfoCommand {
                        @Option(longNames = "includeFailed", shortNames = 'f') boolean includeFailed,
                        @Option(longNames = "includeRunning", shortNames = 'r') boolean includeRunning,
                        @Option(longNames = "limit", shortNames = 'l', defaultValue = "3") Integer limit,
-                       @Option(longNames = "me", shortNames = 'm') boolean buildsRunByMe) {
-        infoService.builds(jobId, includeSuccess, includeFailed, includeRunning, limit, buildsRunByMe);
+                       @Option(longNames = "my-builds", shortNames = 'm') boolean onlyMyBuilds) {
+        infoService.builds(jobId, includeSuccess, includeFailed, includeRunning, limit, onlyMyBuilds);
     }
 }

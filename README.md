@@ -179,7 +179,7 @@ Options:
 - `-f, --includeFailed`: Include failed builds
 - `-r, --includeRunning`: Include running builds
 - `-l, --limit`: Limit the number of builds (default: 3)
-- `-m, --me`: Show builds run by the current user
+- `-m, --my-builds`: Show builds run by the current user
 
 ## Contributing
 

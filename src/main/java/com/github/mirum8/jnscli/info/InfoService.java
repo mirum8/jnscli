@@ -36,14 +36,14 @@ public class InfoService {
                      Integer buildNumber,
                      boolean includeSuccess,
                      boolean includeFailed,
-                     boolean includeRunning, Integer limit, boolean buildsRunByMe) {
+                     boolean includeRunning, Integer limit, boolean onlyMyBuilds) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
         if (buildNumber != null) {
             printFullBuildInfo(job.url(), buildNumber);
         } else {
-            printJobInfo(job, includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, buildsRunByMe);
+            printJobInfo(job, includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds);
         }
     }
 
@@ -66,13 +66,13 @@ public class InfoService {
         return statuses;
     }
 
-    private void printJobInfo(JobDescriptor job, Set<Status> statuses, Integer limit, boolean buildsRunByMe) {
+    private void printJobInfo(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds) {
         WorkflowJob wj = jenkinsAdapter.getWorkflowJob(job.url());
         printGeneralJobInfo(job, wj);
-        printBuildInfo(statuses, limit, buildsRunByMe, job, wj);
+        printBuildInfo(statuses, limit, onlyMyBuilds, job, wj);
     }
 
-    private void printWorkflowJobBuilds(JobDescriptor job, Set<Status> statuses, int limit, boolean buildsRunByMe) {
+    private void printWorkflowJobBuilds(JobDescriptor job, Set<Status> statuses, int limit, boolean onlyMyBuilds) {
         StringBuilder sb = new StringBuilder();
         sb.append(colored("Last builds:\n", TextColor.CYAN));
 
@@ -84,7 +84,7 @@ public class InfoService {
             .filter(build -> statuses.contains(build.status()))
             .map(run -> new RunWithBuildInfo(run, jenkinsAdapter.getJobBuildInfo(job.url(), run.id())))
             .sorted(Comparator.<RunWithBuildInfo>comparingInt(r -> r.buildInfo.number()).reversed())
-            .filter(r -> !buildsRunByMe || r.buildInfo().startedBy().isPresent() && r.buildInfo().startedBy().get().equals(userName))
+            .filter(r -> !onlyMyBuilds || r.buildInfo().startedBy().isPresent() && r.buildInfo().startedBy().get().equals(userName))
             .limit(limit)
             .toList();
 
@@ -177,22 +177,22 @@ public class InfoService {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
-    public void builds(String jobId, boolean includeSuccess, boolean includeFailed, boolean includeRunning, Integer limit, boolean buildsRunByMe) {
+    public void builds(String jobId, boolean includeSuccess, boolean includeFailed, boolean includeRunning, Integer limit, boolean onlyMyBuilds) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
-        printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, buildsRunByMe, job, null);
+        printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null);
     }
 
-    private void printBuildInfo(Set<Status> statuses, Integer limit, boolean buildsRunByMe, JobDescriptor job, WorkflowJob wj) {
+    private void printBuildInfo(Set<Status> statuses, Integer limit, boolean onlyMyBuilds, JobDescriptor job, WorkflowJob wj) {
         switch (job.type()) {
-            case WORKFLOW -> printWorkflowJobBuilds(job, statuses, limit, buildsRunByMe);
+            case WORKFLOW -> printWorkflowJobBuilds(job, statuses, limit, onlyMyBuilds);
             case FREESTYLE ->
-                printFreestyleJobBuilds(job, statuses, limit, buildsRunByMe, wj != null ? wj : jenkinsAdapter.getWorkflowJob(job.url()));
+                printFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj : jenkinsAdapter.getWorkflowJob(job.url()));
             default -> throw new IllegalArgumentException("Unsupported job type: " + job.type());
         }
     }
 
-    private void printFreestyleJobBuilds(JobDescriptor job, Set<Status> statuses, Integer limit, boolean buildsRunByMe, WorkflowJob wj) {
+    private void printFreestyleJobBuilds(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds, WorkflowJob wj) {
         StringBuilder sb = new StringBuilder();
         sb.append(colored("Last builds:\n", TextColor.CYAN));
 
@@ -200,7 +200,7 @@ public class InfoService {
             .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
             .map(build -> jenkinsAdapter.getJobBuildInfo(job.url(), build.number()))
             .filter(buildInfo -> statuses.contains(buildInfo.result()))
-            .filter(build -> !buildsRunByMe || build.startedBy().isPresent() && build.startedBy().get().equals(userName))
+            .filter(build -> !onlyMyBuilds || build.startedBy().isPresent() && build.startedBy().get().equals(userName))
             .limit(limit)
             .toList();
 
