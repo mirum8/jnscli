@@ -100,7 +100,7 @@ class BuildService {
                     .withProgressBar(new BuildProgressBar(jenkinsAdapter, job.url(), workflowJob.nextBuildNumber()))
                     .withCompletionChecker(() -> jenkinsAdapter.getJobBuildDescription(job.url(), workflowJob.nextBuildNumber()))
                     .withSuccessWhen(workflowRun -> workflowRun.status() == Status.SUCCESS)
-                    .withFailureWhen(workflowRun -> workflowRun.status() == FAILED || workflowRun.status() == ABORTED || workflowRun.status() == NOT_EXECUTED)
+                    .withFailureWhen(workflowRun -> workflowRun.status() == FAILED || workflowRun.status() == ABORTED)
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
                     .onFailure(ignored -> showErrorMessage(job.url(), workflowJob.nextBuildNumber()))
                     .build());
@@ -109,7 +109,7 @@ class BuildService {
                     .withProgressBar(new Spinner("Job " + job.name() + " is running"))
                     .withCompletionChecker(() -> jenkinsAdapter.getWorkflowJob(job.url()))
                     .withSuccessWhen(wj -> wj.color().equals("blue"))
-                    .withFailureWhen(wj -> wj.color().equals("red") || wj.color().equals("aborted") || wj.color().equals("notbuilt"))
+                    .withFailureWhen(wj -> wj.color().equals("red") || wj.color().equals("aborted"))
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
                     .onFailure(ignored -> FINISHED_PREFIX + colored(FAILED.name(), TextColor.RED) + "/nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
                     .build());
