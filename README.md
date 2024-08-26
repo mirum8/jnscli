@@ -1,7 +1,7 @@
-# JnsCLI
-
-## Description
-
+<div align="center">
+    <img src="icon.png" width=200 height=200>
+    <h1>JnsCLI</h1>
+</div>
 JnsCLI is a command-line interface for Jenkins, the popular CI/CD automation server. This tool allows you to
 interact with your Jenkins server directly from the command line, making it easier to manage jobs, builds, and server
 configurations without the need for the web interface.
@@ -13,14 +13,15 @@ configurations without the need for the web interface.
 - [Features](#features)
 - [Usage](#usage)
 - [Commands](#commands)
-- [List Jenkins Jobs](#list-jenkins-jobs)
-- [Run a Job](#run-a-job)
-- [Abort](#abort)
-- [Connect](#connect)
-- [Alias](#alias)
-- [Info](#info)
+    - [List Jenkins Jobs](#list-jenkins-jobs)
+    - [Run a Job](#run-a-job)
+    - [Abort](#abort)
+    - [Connect](#connect)
+    - [Alias](#alias)
+    - [Info](#info)
 - [Contributing](#contributing)
 - [License](#license)
+
 
 ## Quick Start (Installation from Binary)
 
@@ -62,7 +63,7 @@ jns list
 Run a job:
 
 ```shell
-jns build <jobId>
+jns build <jobName>
 ```
 
 ## Manual Compilation
@@ -109,25 +110,36 @@ Start the CLI application and use the available commands to interact with your J
 List all jobs on the Jenkins server:
 
 ```shell
-jns list [<folderName>]
+jns list
 ```
 
 ![List jobs](casts/list.gif)
+
+List jobs in a specific folder:
+
+```shell
+jns list <folder>
+```
 
 ### Run a Job
 
 Run a job on the Jenkins server:
 
 ```shell
-jns build <jobId> [-p, --params <key=value>...] [-q, --quiet] [-l, --log]
+jns build <jobId|jobName> [-p, --params <key=value>...] [-q, --quiet] [-l, --log]
 ```
-
 ![Build job](casts/build.gif)
+
+You can also use an ID number (prefixed by '%') from the 'list' output to start a job:
+![Build job by ID](casts/buildById.gif)
+
+If the job already started, you can abort the previous build and start a new one (or cancel the new build):
+![Abort and build](casts/abortAndBuild.gif)
 
 Options:
 
 - `-q, --quiet`: Run the job in quiet mode, suppressing the progress bar.
-- `-l, --log`: Display the build log after the job completes.
+- `-l, --log`: Display the build log during running job.
 - `-p, --params <key=value>`: Specify build parameters. If you don't specify required parameters, you will be prompted
   to enter them. To pass multiple parameters, use this flag multiple times. For example:
 
