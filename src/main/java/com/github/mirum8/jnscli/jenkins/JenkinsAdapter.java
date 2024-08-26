@@ -179,6 +179,24 @@ public class JenkinsAdapter {
         return getBody(response, QueueItem.class);
     }
 
+    public ProgressiveConsoleText getProgressiveConsoleText(String jobUrl, int buildNumber, Long start) {
+        StringBuilder urlBuilder = new StringBuilder(jobUrl)
+            .append("/").append(buildNumber)
+            .append("/logText/progressiveText");
+
+        if (start != null) {
+            urlBuilder.append("?start=").append(start);
+        }
+
+        String url = urlBuilder.toString();
+        HttpResponse<String> response = sendRequest(HttpMethod.GET, url);
+
+        boolean hasMoreData = Boolean.parseBoolean(response.headers().firstValue("X-More-Data").orElse("false"));
+        long nextStart = Long.parseLong(response.headers().firstValue("X-Text-Size").orElse("0"));
+        return new ProgressiveConsoleText(response.body(), hasMoreData, nextStart);
+    }
+
+
     private HttpResponse<String> sendRequest(HttpMethod httpMethod, String url) {
         url = url.replace(" ", "%20");
         try {

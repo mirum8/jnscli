@@ -30,9 +30,6 @@ import static java.util.stream.Collectors.toMap;
 
 @Service
 class BuildService {
-    public static final String STRINGS_SUCCESS = "SUCCESS";
-    public static final String STRINGS_WARNING = "WARNING";
-    public static final String STRINGS_INFO = "INFO";
     public static final String NOT_ABORT = "Do not abort. Start new build";
     public static final String ABORT_ALL = "Abort all. Start new build";
     public static final String CANCEL_BUILD = "Cancel new build";
@@ -181,19 +178,14 @@ class BuildService {
     }
 
     private void showConsoleText(String jobUrl, int buildNumber) {
-        int previousSize = 0;
-        boolean jobCompleted = false;
-        while (!jobCompleted) {
-            Threads.sleepSecs(1);
-            WorkflowRun jobBuildDescription = jenkinsAdapter.getJobBuildDescription(jobUrl, buildNumber);
-            String consoleText = jenkinsAdapter.getConsoleText(jobUrl, buildNumber);
-            shellPrinter.print(consoleText.substring(previousSize)
-                .replace(STRINGS_SUCCESS, colored(STRINGS_SUCCESS, TextColor.RED))
-                .replace(STRINGS_WARNING, colored(STRINGS_WARNING, TextColor.YELLOW))
-                .replace(STRINGS_INFO, colored(STRINGS_INFO, TextColor.CYAN)));
-            previousSize = consoleText.length();
-            jobCompleted = !jobBuildDescription.status().equals(IN_PROGRESS);
-        }
+        long start = 0;
+        ProgressiveConsoleText progressiveConsoleText;
+        do {
+            progressiveConsoleText = jenkinsAdapter.getProgressiveConsoleText(jobUrl, buildNumber, start);
+            shellPrinter.print(progressiveConsoleText.text());
+            start = progressiveConsoleText.nextStart();
+            Threads.sleepSecs(3);
+        } while (progressiveConsoleText.hasMoreData());
     }
 
     private Map<String, String> promptParameters(WorkflowJob workflowJob, List<String> parameters) {
