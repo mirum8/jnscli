@@ -59,6 +59,7 @@ public class AbortService {
     private void abort(JobDescriptor job, int buildNumber) {
         jenkinsAdapter.abortJob(job.url(), buildNumber);
 
+        // todo: remove calling wfapi (replace with jenkins api calling)
         OperationParameters<WorkflowRun> parameters = OperationParameters.<WorkflowRun>builder()
             .withProgressBar(new Spinner("Aborting job " + job.name()))
             .withCompletionChecker(() -> jenkinsAdapter.getJobBuildDescription(job.url(), buildNumber))

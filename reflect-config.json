@@ -168,5 +168,70 @@
     "name": "com.github.mirum8.jnscli.jenkins.QueueItemLocation",
     "allPublicMethods": true,
     "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.response.OllamaErrorResponse",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.request.OllamaCommonRequest",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.response.OllamaResult",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.generate.OllamaGenerateRequest",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.generate.OllamaGenerateResponseModel",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.response.Model",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.response.ListModelsResponse",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.response.ModelMeta",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.request.ModelRequest",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.response.ModelPullResponse",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.request.BasicAuth",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.request.CustomModelFileContentsRequest",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.ollama4j.models.request.CustomModelFilePathRequest",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
   }
 ]

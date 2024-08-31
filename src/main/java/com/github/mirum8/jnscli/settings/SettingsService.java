@@ -7,6 +7,7 @@ import java.io.*;
 import java.nio.file.FileSystems;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -21,9 +22,13 @@ public class SettingsService {
 
     public static final String CONFIG_FILENAME = "config";
     public final String configFilePath;
+
+    private final AiSettingsProvider aiSettingsProvider;
+
     private Settings settings;
 
-    public SettingsService(SettingsProperties properties) {
+    public SettingsService(SettingsProperties properties, AiSettingsProvider aiSettingsProvider) {
+        this.aiSettingsProvider = aiSettingsProvider;
         String configDirectory = resolveHomeDir(properties.directory());
         String fileSeparator = FileSystems.getDefault().getSeparator();
         this.configFilePath = configDirectory + fileSeparator + CONFIG_FILENAME;
@@ -35,7 +40,7 @@ public class SettingsService {
         File configFile = new File(configFilePath);
 
         if (!configFile.exists()) {
-            writeSettings(new Settings("", "", "", new HashMap<>()));
+            writeSettings(new Settings("", "", "", new HashMap<>(), null));
         }
     }
 
@@ -58,7 +63,8 @@ public class SettingsService {
             prop.getProperty(PROPERTIES_SERVER, ""),
             prop.getProperty(PROPERTIES_USERNAME, ""),
             prop.getProperty(PROPERTIES_KEY, ""),
-            aliases
+            aliases,
+            aiSettingsProvider.getFromProps(prop).orElse(null)
         );
     }
 
@@ -74,7 +80,9 @@ public class SettingsService {
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .collect(Collectors.joining(","));
             prop.setProperty(PROPERTIES_ALIASES, aliasesString);
-
+            if (settings.aiSettings() != null) {
+                settings.aiSettings().writeToProps(prop);
+            }
             prop.store(outputStream, null);
             this.settings = settings;
         } catch (IOException e) {
@@ -95,4 +103,14 @@ public class SettingsService {
         }
         return aliases;
     }
+
+    public void writeAiSettings(AiSettings aiSettings) {
+        Settings updatedSettings = readSettings();
+        writeSettings(updatedSettings.updateAiSettings(aiSettings));
+    }
+
+    public Optional<AiSettings> readAiSettings() {
+        return Optional.ofNullable(readSettings().aiSettings());
+    }
+
 }

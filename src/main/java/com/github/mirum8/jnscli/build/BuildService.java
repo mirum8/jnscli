@@ -1,6 +1,7 @@
 package com.github.mirum8.jnscli.build;
 
 import com.github.mirum8.jnscli.abort.AbortService;
+import com.github.mirum8.jnscli.ai.AiService;
 import com.github.mirum8.jnscli.build.parameters.ParameterService;
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
 import com.github.mirum8.jnscli.context.JobType;
@@ -42,6 +43,7 @@ class BuildService {
     private final CommandRunner commandRunner;
     private final ParameterService parameterService;
     private final JobDescriptorProvider jobDescriptorProvider;
+    private final AiService aiService;
 
     BuildService(ShellPrinter shellPrinter,
                  JenkinsAdapter jenkinsAdapter,
@@ -49,7 +51,8 @@ class BuildService {
                  AbortService abortService,
                  CommandRunner commandRunner,
                  ParameterService parameterService,
-                 JobDescriptorProvider jobDescriptorProvider) {
+                 JobDescriptorProvider jobDescriptorProvider,
+                 AiService aiService) {
         this.shellPrinter = shellPrinter;
         this.jenkinsAdapter = jenkinsAdapter;
         this.shellPrompter = shellPrompter;
@@ -57,9 +60,10 @@ class BuildService {
         this.commandRunner = commandRunner;
         this.parameterService = parameterService;
         this.jobDescriptorProvider = jobDescriptorProvider;
+        this.aiService = aiService;
     }
 
-    void build(String jobId, boolean progress, boolean showLog, List<String> parameters) {
+    void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
@@ -88,18 +92,18 @@ class BuildService {
             .orElseGet(() -> startJob(job, filledParameters));
 
         if (runningResult == RunningResult.FAILURE) {
-            shellPrinter.println(showErrorMessage(job.url(), workflowJob.nextBuildNumber()));
+            shellPrinter.println(getErrorMessage(job.url(), workflowJob.nextBuildNumber(), useAi));
             return;
         }
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
-                commandRunner.showProgress(OperationParameters.<WorkflowRun>builder()
+                commandRunner.showProgress(OperationParameters.<BuildInfo>builder()
                     .withProgressBar(new BuildProgressBar(jenkinsAdapter, job.url(), workflowJob.nextBuildNumber()))
-                    .withCompletionChecker(() -> jenkinsAdapter.getJobBuildDescription(job.url(), workflowJob.nextBuildNumber()))
-                    .withSuccessWhen(workflowRun -> workflowRun.status() == Status.SUCCESS)
-                    .withFailureWhen(workflowRun -> workflowRun.status() == FAILED || workflowRun.status() == ABORTED)
+                    .withCompletionChecker(() -> jenkinsAdapter.getJobBuildInfo(job.url(), workflowJob.nextBuildNumber()))
+                    .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
+                    .withFailureWhen(buildInfo -> buildInfo.status() == FAILED || buildInfo.status() == FAILURE || buildInfo.status() == ABORTED)
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
-                    .onFailure(ignored -> showErrorMessage(job.url(), workflowJob.nextBuildNumber()))
+                    .onFailure(ignored -> getErrorMessage(job.url(), workflowJob.nextBuildNumber(), useAi))
                     .build());
             } else {
                 commandRunner.showProgress(OperationParameters.<WorkflowJob>builder()
@@ -192,14 +196,16 @@ class BuildService {
         return parameterService.prompt(workflowJob, parameters);
     }
 
-    private String showErrorMessage(String jobUrl, int buildNumber) {
+    private String getErrorMessage(String jobUrl, int buildNumber, boolean useAi) {
         WorkflowRun workflowRun = jenkinsAdapter.getJobBuildDescription(jobUrl, buildNumber);
         String errors = getErrors(jobUrl, workflowRun);
         if (!errors.isEmpty()) {
-            return errors.replace("ERROR", colored("ERROR", TextColor.RED)) + "\n" +
-                FINISHED_PREFIX + colored(workflowRun.status().name(), TextColor.RED);
+            var message = useAi ? aiService.analyzeLog(errors) : errors.replace("ERROR", colored("ERROR", TextColor.RED)) + "\n"
+                + FINISHED_PREFIX + colored(workflowRun.status().name(), TextColor.RED);
+            return "Error: + " + message;
         } else {
-            return jenkinsAdapter.getConsoleText(jobUrl, workflowRun.id());
+            var message = useAi ? aiService.analyzeLog(jenkinsAdapter.getConsoleText(jobUrl, buildNumber)) : jenkinsAdapter.getConsoleText(jobUrl, buildNumber);
+            return "Error: " + message;
         }
     }
 
