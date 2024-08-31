@@ -74,6 +74,12 @@ public class JenkinsAPI {
         JenkinsApiUtils.sendRequest(HttpMethod.POST, url, httpRequestBuilder, httpClient);
     }
 
+    public WorkflowJob getWorkflowJob(String jobUrl) {
+        String url = jobUrl + JenkinsApiUtils.API_JSON;
+        HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilder, httpClient);
+        return JenkinsApiUtils.getBody(response, WorkflowJob.class, objectMapper);
+    }
+
     public Folder getFolderJobs(String folderUrl) {
         String url = folderUrl + JenkinsApiUtils.API_JSON;
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilder, httpClient);

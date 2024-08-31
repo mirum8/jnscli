@@ -6,7 +6,8 @@ public enum TextColor {
     RED(AttributedStyle.RED),
     GREEN(AttributedStyle.GREEN),
     YELLOW(AttributedStyle.YELLOW),
-    CYAN(AttributedStyle.CYAN);
+    CYAN(AttributedStyle.CYAN),
+    MAGENTA(AttributedStyle.MAGENTA);
 
     private final int code;
 

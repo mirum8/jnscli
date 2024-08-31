@@ -15,6 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
+import static com.github.mirum8.jnscli.util.Statuses.getColored;
 
 @Component
 public class InfoService {
@@ -69,7 +70,7 @@ public class InfoService {
     }
 
     private void printJobInfo(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds) {
-        WorkflowJob wj = pipelineAPI.getWorkflowJob(job.url());
+        WorkflowJob wj = jenkinsAPI.getWorkflowJob(job.url());
         printGeneralJobInfo(job, wj);
         printBuildInfo(statuses, limit, onlyMyBuilds, job, wj);
     }
@@ -136,7 +137,7 @@ public class InfoService {
     private String getBuildSummary(Build run, BuildInfo build) {
         var sb = new StringBuilder();
         sb.append(colored("Build " + build.displayName(), TextColor.YELLOW)).append("\n")
-            .append(colored("  Status:    ", TextColor.CYAN)).append(getColoredStatus(run.status())).append("\n")
+            .append(colored("  Status:    ", TextColor.CYAN)).append(getColored(run.status())).append("\n")
             .append(colored("  StartedAt: ", TextColor.CYAN)).append(formatTimestamp(build.timestamp())).append("\n")
             .append(colored("  Duration:  ", TextColor.CYAN)).append(formatDuration(build.duration())).append("\n");
         build.startedBy().ifPresent(startedBy ->
@@ -152,17 +153,9 @@ public class InfoService {
     }
 
     private String formatStageInfo(WorkflowRun.Stage stage) {
-        return "   " + stage.name() + ": " + getColoredStatus(Status.valueOf(stage.status().toUpperCase())) + "\n";
+        return "   " + stage.name() + ": " + getColored(Status.valueOf(stage.status().toUpperCase())) + "\n";
     }
 
-    private String getColoredStatus(Status status) {
-        return switch (status) {
-            case SUCCESS -> colored(status.toString(), TextColor.GREEN);
-            case FAILED, FAILURE -> colored(status.toString(), TextColor.RED);
-            case ABORTED, IN_PROGRESS -> colored(status.toString(), TextColor.YELLOW);
-            default -> status.name();
-        };
-    }
 
     private String formatTimestamp(long timestampMillis) {
         return Instant.ofEpochMilli(timestampMillis)
@@ -188,8 +181,8 @@ public class InfoService {
     private void printBuildInfo(Set<Status> statuses, Integer limit, boolean onlyMyBuilds, JobDescriptor job, WorkflowJob wj) {
         switch (job.type()) {
             case WORKFLOW -> printWorkflowJobBuilds(job, statuses, limit, onlyMyBuilds);
-            case FREESTYLE ->
-                printFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj : pipelineAPI.getWorkflowJob(job.url()));
+            case FREESTYLE -> printFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj
+                : jenkinsAPI.getWorkflowJob(job.url()));
             default -> throw new IllegalArgumentException("Unsupported job type: " + job.type());
         }
     }

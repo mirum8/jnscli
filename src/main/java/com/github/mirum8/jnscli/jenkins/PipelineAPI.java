@@ -41,12 +41,6 @@ public class PipelineAPI {
         }
     }
 
-    public WorkflowJob getWorkflowJob(String jobUrl) {
-        String url = jobUrl + JenkinsApiUtils.API_JSON;
-        HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilder, httpClient);
-        return JenkinsApiUtils.getBody(response, WorkflowJob.class, objectMapper);
-    }
-
     public StageDescription getStageDescription(String jobUrl, long buildNumber, String stageId) {
         String url = jobUrl + "/" + buildNumber + "/execution/node/" + stageId + "/wfapi/describe";
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilder, httpClient);

@@ -30,7 +30,7 @@ public class InfoCommand {
                        @Option(longNames = "includeFailed", shortNames = 'f') boolean includeFailed,
                        @Option(longNames = "includeRunning", shortNames = 'r') boolean includeRunning,
                        @Option(longNames = "limit", shortNames = 'l', defaultValue = "3") Integer limit,
-                       @Option(longNames = "my-builds", shortNames = 'm') boolean onlyMyBuilds) {
+                       @Option(longNames = "myBuilds", shortNames = 'm') boolean onlyMyBuilds) {
         infoService.builds(jobId, includeSuccess, includeFailed, includeRunning, limit, onlyMyBuilds);
     }
 }

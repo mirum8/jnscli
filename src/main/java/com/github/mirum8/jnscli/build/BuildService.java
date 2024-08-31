@@ -5,6 +5,7 @@ import com.github.mirum8.jnscli.ai.AiService;
 import com.github.mirum8.jnscli.build.parameters.ParameterService;
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
 import com.github.mirum8.jnscli.context.JobType;
+import com.github.mirum8.jnscli.diagnose.ErrorService;
 import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.jenkins.QueueItem.QueueItemType;
 import com.github.mirum8.jnscli.model.JobDescriptor;
@@ -45,6 +46,7 @@ class BuildService {
     private final JobDescriptorProvider jobDescriptorProvider;
     private final AiService aiService;
     private final PipelineAPI pipelineAPI;
+    private final ErrorService errorService;
 
     BuildService(ShellPrinter shellPrinter,
                  JenkinsAPI jenkinsAPI,
@@ -54,7 +56,8 @@ class BuildService {
                  ParameterService parameterService,
                  JobDescriptorProvider jobDescriptorProvider,
                  AiService aiService,
-                 PipelineAPI pipelineAPI) {
+                 PipelineAPI pipelineAPI,
+                 ErrorService errorService) {
         this.shellPrinter = shellPrinter;
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrompter = shellPrompter;
@@ -64,6 +67,7 @@ class BuildService {
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.aiService = aiService;
         this.pipelineAPI = pipelineAPI;
+        this.errorService = errorService;
     }
 
     void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi) {
@@ -71,7 +75,7 @@ class BuildService {
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
         String jobUrl = job.url();
-        WorkflowJob workflowJob = pipelineAPI.getWorkflowJob(jobUrl);
+        WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(jobUrl);
         if (!workflowJob.buildable()) {
             throw new IllegalArgumentException("The job is not buildable");
         }
@@ -94,24 +98,26 @@ class BuildService {
             .map(parameterDefinition -> startJobWithFile(job, filledParameters, parameterDefinition))
             .orElseGet(() -> startJob(job, filledParameters));
 
+        int buildNumber = workflowJob.nextBuildNumber();
         if (runningResult == RunningResult.FAILURE) {
-            shellPrinter.println(getErrorMessage(job.url(), workflowJob.nextBuildNumber(), useAi));
+            shellPrinter.println(getErrorMessage(job, buildNumber, useAi));
+            shellPrinter.println(FINISHED_PREFIX + jenkinsAPI.getJobBuildInfo(job.url(), buildNumber).status().name());
             return;
         }
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
                 commandRunner.showProgress(OperationParameters.<BuildInfo>builder()
-                    .withProgressBar(new BuildProgressBar(pipelineAPI, job.url(), workflowJob.nextBuildNumber()))
-                    .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), workflowJob.nextBuildNumber()))
+                    .withProgressBar(new BuildProgressBar(pipelineAPI, job.url(), buildNumber))
+                    .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
                     .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
                     .withFailureWhen(buildInfo -> buildInfo.status() == FAILED || buildInfo.status() == FAILURE || buildInfo.status() == ABORTED)
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
-                    .onFailure(ignored -> getErrorMessage(job.url(), workflowJob.nextBuildNumber(), useAi))
+                    .onFailure(ignored -> getErrorMessage(job, buildNumber, useAi))
                     .build());
             } else {
                 commandRunner.showProgress(OperationParameters.<WorkflowJob>builder()
                     .withProgressBar(new Spinner("Job " + job.name() + " is running"))
-                    .withCompletionChecker(() -> pipelineAPI.getWorkflowJob(job.url()))
+                    .withCompletionChecker(() -> jenkinsAPI.getWorkflowJob(job.url()))
                     .withSuccessWhen(wj -> wj.color().equals("blue"))
                     .withFailureWhen(wj -> wj.color().equals("red") || wj.color().equals("aborted"))
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
@@ -120,7 +126,7 @@ class BuildService {
             }
         }
         if (showLog) {
-            showConsoleText(job.url(), workflowJob.nextBuildNumber());
+            showConsoleText(job.url(), buildNumber);
         }
     }
 
@@ -199,28 +205,9 @@ class BuildService {
         return parameterService.prompt(workflowJob, parameters);
     }
 
-    private String getErrorMessage(String jobUrl, int buildNumber, boolean useAi) {
-        WorkflowRun workflowRun = pipelineAPI.getJobBuildDescription(jobUrl, buildNumber);
-        String errors = getErrors(jobUrl, workflowRun);
-        if (!errors.isEmpty()) {
-            var message = useAi ? aiService.analyzeLog(errors) : errors.replace("ERROR", colored("ERROR", TextColor.RED)) + "\n"
-                + FINISHED_PREFIX + colored(workflowRun.status().name(), TextColor.RED);
-            return "Error: + " + message;
-        } else {
-            var message = useAi ? aiService.analyzeLog(jenkinsAPI.getConsoleText(jobUrl, buildNumber)) : jenkinsAPI.getConsoleText(jobUrl, buildNumber);
-            return "Error: " + message;
-        }
-    }
-
-    private String getErrors(String jobUrl, WorkflowRun workflowRun) {
-        return workflowRun.stages().stream().filter(stage -> !stage.status().equals(SUCCESS.name()))
-            .findFirst()
-            .flatMap(stage -> pipelineAPI.getStageDescription(jobUrl, workflowRun.id(), stage.id())
-                .stageFlowNodes().stream()
-                .filter(stageFlowNode -> !stageFlowNode.status().equals(SUCCESS.name()))
-                .findFirst()
-                .map(stageFlowNode -> pipelineAPI.getNodeLog(jobUrl, workflowRun.id(), stageFlowNode.id()).text()))
-            .orElse("");
+    private String getErrorMessage(JobDescriptor job, int buildNumber, boolean useAi) {
+        String errors = errorService.getErrors(job, buildNumber);
+        return useAi ? colored("AI analysis: ", TextColor.MAGENTA) + aiService.analyzeLog(errors) : "Errors:\n" + errors;
     }
 
     private RunningResult startJob(JobDescriptor job, Map<String, String> parameters) {
