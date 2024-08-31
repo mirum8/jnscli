@@ -26,12 +26,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class JenkinsAdapterTest {
+class JenkinsAPITest {
     private static final String BASE_URL = "http://localhost";
     private static final String JOB_URL = BASE_URL + "/job/test";
-    private static final String API_JSON = "/api/json";
 
-    private JenkinsAdapter jenkinsAdapter;
+    private JenkinsAPI jenkinsAPI;
     private HttpClient httpClient;
     private Settings settings;
     private ObjectMapper objectMapper;
@@ -43,7 +42,7 @@ class JenkinsAdapterTest {
         SettingsService settingsService = mock(SettingsService.class);
         when(settingsService.readSettings()).thenReturn(settings);
         objectMapper = new ObjectMapper();
-        jenkinsAdapter = new JenkinsAdapter(
+        jenkinsAPI = new JenkinsAPI(
             httpClient,
             new HttpRequestBuilder(settingsService),
             settingsService
@@ -56,7 +55,7 @@ class JenkinsAdapterTest {
         void shouldReturnSuccessWhenConnectionIsSuccessful() throws IOException, InterruptedException {
             mockHttpResponse(200, "{\"_class\":\"hudson.model.AllView\",\"jobs\":[]}");
 
-            CheckConnectionResult result = jenkinsAdapter.checkConnection(settings);
+            CheckConnectionResult result = jenkinsAPI.checkConnection(settings);
 
             assertThat(result.status()).isEqualTo(CheckConnectionResult.Status.SUCCESS);
             assertThat(result.message()).contains("Connection to Jenkins server " + BASE_URL + " was successful");
@@ -66,7 +65,7 @@ class JenkinsAdapterTest {
         void shouldReturnFailureWhenConnectionFails() throws IOException, InterruptedException {
             mockHttpResponse(404, "Not Found");
 
-            CheckConnectionResult result = jenkinsAdapter.checkConnection(settings);
+            CheckConnectionResult result = jenkinsAPI.checkConnection(settings);
 
             assertThat(result.status()).isEqualTo(CheckConnectionResult.Status.FAILURE);
             assertThat(result.message()).contains("HTTP: 404");
@@ -76,21 +75,11 @@ class JenkinsAdapterTest {
     @Nested
     class JobOperations {
         @Test
-        void shouldRetrieveJobBuildDescription() throws IOException, InterruptedException {
-            String json = "{\"id\":\"1\",\"name\":\"Build\",\"status\":\"SUCCESS\"}";
-            mockHttpResponse(200, json);
-
-            WorkflowRun result = jenkinsAdapter.getJobBuildDescription(JOB_URL, 1);
-
-            assertThat(result).isEqualTo(objectMapper.readValue(json, WorkflowRun.class));
-        }
-
-        @Test
         void shouldRetrieveListOfJobs() throws IOException, InterruptedException {
             String json = "{\"jobs\":[{\"name\":\"job1\"},{\"name\":\"job2\"}]}";
             mockHttpResponse(200, json);
 
-            List<Job> result = jenkinsAdapter.getJobs();
+            List<Job> result = jenkinsAPI.getJobs();
 
             assertThat(result)
                 .hasSize(2)
@@ -102,7 +91,7 @@ class JenkinsAdapterTest {
         void shouldRunJobWithoutParameters() throws IOException, InterruptedException {
             mockHttpResponse(201, "", "Location", "http://localhost/queue/item/123/");
 
-            QueueItemLocation result = jenkinsAdapter.runJob(JOB_URL);
+            QueueItemLocation result = jenkinsAPI.runJob(JOB_URL);
 
             verify(httpClient).send(argThat(request ->
                 request.method().equalsIgnoreCase("POST") &&
@@ -119,7 +108,7 @@ class JenkinsAdapterTest {
         void shouldRunJobWithParameters(String params) throws IOException, InterruptedException {
             mockHttpResponse(201, "", "Location", "http://localhost/queue/item/123/");
 
-            QueueItemLocation result = jenkinsAdapter.runJob(JOB_URL, List.of(params.split(",")));
+            QueueItemLocation result = jenkinsAPI.runJob(JOB_URL, List.of(params.split(",")));
 
             verify(httpClient).send(argThat(request ->
                 request.method().equalsIgnoreCase("POST") &&
@@ -136,7 +125,7 @@ class JenkinsAdapterTest {
             try {
                 Files.writeString(tempFile, "Test content");
 
-                QueueItemLocation result = jenkinsAdapter.runJobWithFileParam(JOB_URL, "file", tempFile, List.of("param1=value1"));
+                QueueItemLocation result = jenkinsAPI.runJobWithFileParam(JOB_URL, "file", tempFile, List.of("param1=value1"));
 
                 ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
                 verify(httpClient).send(captor.capture(), any());
@@ -159,94 +148,13 @@ class JenkinsAdapterTest {
     @Nested
     class JobInformationRetrieval {
         @Test
-        void shouldRetrieveWorkflowJob() throws IOException, InterruptedException {
-            String json = "{\"name\":\"job1\",\"url\":\"" + JOB_URL + "\"}";
-            mockHttpResponse(200, json);
-
-            WorkflowJob result = jenkinsAdapter.getWorkflowJob(JOB_URL);
-
-            assertThat(result).isEqualTo(objectMapper.readValue(json, WorkflowJob.class));
-        }
-
-        @Test
-        void shouldRetrieveStageDescription() throws IOException, InterruptedException {
-            String json = "{\"id\":\"1\",\"name\":\"Stage 1\",\"status\":\"SUCCESS\",\"stageFlowNodes\":[]}";
-            mockHttpResponse(200, json);
-
-            StageDescription result = jenkinsAdapter.getStageDescription(JOB_URL, 1, "1");
-
-            assertThat(result).isEqualTo(new StageDescription("1", "SUCCESS", List.of()));
-            verify(httpClient).send(argThat(request ->
-                request.method().equalsIgnoreCase("GET") &&
-                    request.uri().toString().equals(JOB_URL + "/1/execution/node/1/wfapi/describe")
-            ), any());
-        }
-
-        @Test
         void shouldRetrieveConsoleText() throws IOException, InterruptedException {
             String consoleText = "Build log...";
             mockHttpResponse(200, consoleText);
 
-            String result = jenkinsAdapter.getConsoleText(JOB_URL, 1);
+            String result = jenkinsAPI.getConsoleText(JOB_URL, 1);
 
             assertThat(result).isEqualTo(consoleText);
-        }
-
-        @Test
-        void shouldRetrieveNodeLog() throws IOException, InterruptedException {
-            String json = "{\"text\":\"Log text...\"}";
-            mockHttpResponse(200, json);
-
-            NodeLog result = jenkinsAdapter.getNodeLog(JOB_URL, 1, "1");
-
-            assertThat(result).isEqualTo(objectMapper.readValue(json, NodeLog.class));
-        }
-
-        @Test
-        void shouldRetrieveJobRuns() throws IOException, InterruptedException {
-            String json = """
-                [
-                  {
-                    "id": "1",
-                    "name": "job1",
-                    "status": "SUCCESS",
-                    "stages": [
-                      {
-                        "id": "1",
-                        "name": "stage1",
-                        "status": "SUCCESS"
-                      }
-                    ]
-                  },
-                  {
-                    "id": "2",
-                    "name": "job2",
-                    "status": "FAILED",
-                    "stages": [
-                      {
-                        "id": "2",
-                        "name": "stage2",
-                        "status": "FAILED"
-                      }
-                    ]
-                  }
-                ]
-                """;
-            mockHttpResponse(200, json);
-
-            List<Run> jobRuns = jenkinsAdapter.getJobRuns(JOB_URL);
-
-            assertThat(jobRuns)
-                .hasSize(2)
-                .containsExactly(
-                    new Run(1, "job1", Status.SUCCESS, List.of(new Run.Stage("1", "stage1", Status.SUCCESS))),
-                    new Run(2, "job2", Status.FAILED, List.of(new Run.Stage("2", "stage2", Status.FAILED)))
-                );
-
-            verify(httpClient).send(argThat(request ->
-                request.method().equalsIgnoreCase("GET") &&
-                    request.uri().toString().equals(JOB_URL + "/wfapi/runs")
-            ), any());
         }
     }
 
@@ -254,7 +162,7 @@ class JenkinsAdapterTest {
     void shouldAbortJob() throws IOException, InterruptedException {
         mockHttpResponse(200, "");
 
-        jenkinsAdapter.abortJob(JOB_URL, 1);
+        jenkinsAPI.abortJob(JOB_URL, 1);
 
         verify(httpClient).send(argThat(request ->
             request.method().equalsIgnoreCase("POST") &&
@@ -267,7 +175,7 @@ class JenkinsAdapterTest {
         String json = "{\"jobs\":[{\"name\":\"job1\"},{\"name\":\"job2\"}]}";
         mockHttpResponse(200, json);
 
-        Folder result = jenkinsAdapter.getFolderJobs(BASE_URL + "/job/folder1");
+        Folder result = jenkinsAPI.getFolderJobs(BASE_URL + "/job/folder1");
 
         assertThat(result).isEqualTo(objectMapper.readValue(json, Folder.class));
     }
@@ -276,8 +184,8 @@ class JenkinsAdapterTest {
     void shouldThrowExceptionOnHttpError() throws IOException, InterruptedException {
         mockHttpResponse(404, "Not Found");
 
-        assertThatThrownBy(() -> jenkinsAdapter.getJobs())
-            .isInstanceOf(JenkinsAdapterException.class)
+        assertThatThrownBy(() -> jenkinsAPI.getJobs())
+            .isInstanceOf(JenkinsAPIException.class)
             .hasMessageContaining("HTTP: 404");
     }
 

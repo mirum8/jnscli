@@ -1,7 +1,7 @@
 package com.github.mirum8.jnscli.connect;
 
 import com.github.mirum8.jnscli.jenkins.CheckConnectionResult;
-import com.github.mirum8.jnscli.jenkins.JenkinsAdapter;
+import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.OperationParameters;
 import com.github.mirum8.jnscli.runner.Spinner;
@@ -17,13 +17,13 @@ import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
 @Service
 class ConnectService {
     private final ShellPrompter shellPrompter;
-    private final JenkinsAdapter jenkinsAdapter;
+    private final JenkinsAPI jenkinsAPI;
     private final CommandRunner commandRunner;
     private final SettingsService settingsService;
 
-    ConnectService(ShellPrompter shellPrompter, JenkinsAdapter jenkinsAdapter, CommandRunner commandRunner, SettingsService settingsService) {
+    ConnectService(ShellPrompter shellPrompter, JenkinsAPI jenkinsAPI, CommandRunner commandRunner, SettingsService settingsService) {
         this.shellPrompter = shellPrompter;
-        this.jenkinsAdapter = jenkinsAdapter;
+        this.jenkinsAPI = jenkinsAPI;
         this.commandRunner = commandRunner;
         this.settingsService = settingsService;
     }
@@ -38,7 +38,7 @@ class ConnectService {
 
         commandRunner.showProgress(OperationParameters.<CheckConnectionResult>builder()
             .withProgressBar(new Spinner("Connecting to Jenkins server " + serverName))
-            .withCompletionChecker(() -> jenkinsAdapter.checkConnection(settings))
+            .withCompletionChecker(() -> jenkinsAPI.checkConnection(settings))
             .withSuccessWhen(CheckConnectionResult::isSuccess)
             .withFailureWhen(CheckConnectionResult::isFailure)
             .onSuccess(ignored -> colored("✓", GREEN) + " Connection established successfully")

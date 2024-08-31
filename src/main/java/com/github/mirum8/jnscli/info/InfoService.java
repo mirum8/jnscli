@@ -20,16 +20,18 @@ import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
 public class InfoService {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final JenkinsAdapter jenkinsAdapter;
+    private final JenkinsAPI jenkinsAPI;
     private final ShellPrinter shellPrinter;
     private final JobDescriptorProvider jobDescriptorProvider;
     private final String userName;
+    private final PipelineAPI pipelineAPI;
 
-    public InfoService(JenkinsAdapter jenkinsAdapter, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService) {
-        this.jenkinsAdapter = jenkinsAdapter;
+    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI) {
+        this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.userName = settingsService.readSettings().username();
+        this.pipelineAPI = pipelineAPI;
     }
 
     public void info(String jobId,
@@ -67,7 +69,7 @@ public class InfoService {
     }
 
     private void printJobInfo(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds) {
-        WorkflowJob wj = jenkinsAdapter.getWorkflowJob(job.url());
+        WorkflowJob wj = pipelineAPI.getWorkflowJob(job.url());
         printGeneralJobInfo(job, wj);
         printBuildInfo(statuses, limit, onlyMyBuilds, job, wj);
     }
@@ -79,10 +81,10 @@ public class InfoService {
         record RunWithBuildInfo(Run run, BuildInfo buildInfo) {
         }
 
-        List<Run> builds = jenkinsAdapter.getJobRuns(job.url());
+        List<Run> builds = pipelineAPI.getJobRuns(job.url());
         List<RunWithBuildInfo> filteredBuilds = builds.stream()
             .filter(build -> statuses.contains(build.status()))
-            .map(run -> new RunWithBuildInfo(run, jenkinsAdapter.getJobBuildInfo(job.url(), run.id())))
+            .map(run -> new RunWithBuildInfo(run, jenkinsAPI.getJobBuildInfo(job.url(), run.id())))
             .sorted(Comparator.<RunWithBuildInfo>comparingInt(r -> r.buildInfo.number()).reversed())
             .filter(r -> !onlyMyBuilds || r.buildInfo().startedBy().isPresent() && r.buildInfo().startedBy().get().equals(userName))
             .limit(limit)
@@ -121,9 +123,9 @@ public class InfoService {
     }
 
     private void printFullBuildInfo(String jobUrl, int buildNumber) {
-        WorkflowRun wr = jenkinsAdapter.getJobBuildDescription(jobUrl, buildNumber);
+        WorkflowRun wr = pipelineAPI.getJobBuildDescription(jobUrl, buildNumber);
         StringBuilder sb = new StringBuilder();
-        sb.append(getBuildSummary(wr, jenkinsAdapter.getJobBuildInfo(jobUrl, wr.id())));
+        sb.append(getBuildSummary(wr, jenkinsAPI.getJobBuildInfo(jobUrl, wr.id())));
         if (!wr.stages().isEmpty()) {
             sb.append(colored("\n  Stages:", TextColor.CYAN)).append("\n");
             wr.stages().forEach(stage -> sb.append(formatStageInfo(stage)));
@@ -187,7 +189,7 @@ public class InfoService {
         switch (job.type()) {
             case WORKFLOW -> printWorkflowJobBuilds(job, statuses, limit, onlyMyBuilds);
             case FREESTYLE ->
-                printFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj : jenkinsAdapter.getWorkflowJob(job.url()));
+                printFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj : pipelineAPI.getWorkflowJob(job.url()));
             default -> throw new IllegalArgumentException("Unsupported job type: " + job.type());
         }
     }
@@ -198,7 +200,7 @@ public class InfoService {
 
         List<BuildInfo> filteredBuilds = wj.builds().stream()
             .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
-            .map(build -> jenkinsAdapter.getJobBuildInfo(job.url(), build.number()))
+            .map(build -> jenkinsAPI.getJobBuildInfo(job.url(), build.number()))
             .filter(buildInfo -> statuses.contains(buildInfo.result()))
             .filter(build -> !onlyMyBuilds || build.startedBy().isPresent() && build.startedBy().get().equals(userName))
             .limit(limit)
@@ -207,7 +209,7 @@ public class InfoService {
         if (!filteredBuilds.isEmpty()) {
             for (BuildInfo filteredBuild : filteredBuilds) {
                 sb.append("----------------------------------------\n");
-                sb.append(getBuildSummary(filteredBuild, jenkinsAdapter.getJobBuildInfo(job.url(), filteredBuild.number())));
+                sb.append(getBuildSummary(filteredBuild, jenkinsAPI.getJobBuildInfo(job.url(), filteredBuild.number())));
             }
         } else {
             sb.append("  No builds found.\n");

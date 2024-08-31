@@ -3,7 +3,7 @@ package com.github.mirum8.jnscli.common;
 import com.github.mirum8.jnscli.alias.AliasService;
 import com.github.mirum8.jnscli.context.JobType;
 import com.github.mirum8.jnscli.context.JobsContext;
-import com.github.mirum8.jnscli.jenkins.JenkinsAdapter;
+import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import org.springframework.stereotype.Component;
 
@@ -14,12 +14,12 @@ import static com.github.mirum8.jnscli.util.Strings.isJobNumber;
 @Component
 public class JobDescriptorProvider {
     private final AliasService aliasService;
-    private final JenkinsAdapter jenkinsAdapter;
+    private final JenkinsAPI jenkinsAPI;
     private final JobsContext jobsContext;
 
-    public JobDescriptorProvider(AliasService aliasService, JenkinsAdapter jenkinsAdapter, JobsContext jobsContext) {
+    public JobDescriptorProvider(AliasService aliasService, JenkinsAPI jenkinsAPI, JobsContext jobsContext) {
         this.aliasService = aliasService;
-        this.jenkinsAdapter = jenkinsAdapter;
+        this.jenkinsAPI = jenkinsAPI;
         this.jobsContext = jobsContext;
     }
 
@@ -31,7 +31,7 @@ public class JobDescriptorProvider {
         return aliasService.getJobUrl(jobName)
             .map(url -> JobDescriptor.builder().name(jobName).url(url).alias(jobName).build())
             .or(() -> jobsContext.findJobByName(jobName))
-            .or(() -> jenkinsAdapter.getJobs()
+            .or(() -> jenkinsAPI.getJobs()
                 .stream().filter(job -> job.name().equals(jobName))
                 .findFirst().map(job -> JobDescriptor.builder().name(job.name()).url(job.url()).type(JobType.fromName(job.aClass())).build()));
     }

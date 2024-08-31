@@ -1,10 +1,7 @@
 package com.github.mirum8.jnscli.abort;
 
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
-import com.github.mirum8.jnscli.jenkins.JenkinsAdapter;
-import com.github.mirum8.jnscli.jenkins.Status;
-import com.github.mirum8.jnscli.jenkins.WorkflowJob;
-import com.github.mirum8.jnscli.jenkins.WorkflowRun;
+import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.OperationParameters;
@@ -17,23 +14,25 @@ import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
 
 @Service
 public class AbortService {
-    private final JenkinsAdapter jenkinsAdapter;
+    private final JenkinsAPI jenkinsAPI;
     private final ShellPrinter shellPrinter;
     private final CommandRunner commandRunner;
     private final JobDescriptorProvider jobDescriptorProvider;
+    private final PipelineAPI pipelineAPI;
 
-    public AbortService(JenkinsAdapter jenkinsAdapter, ShellPrinter shellPrinter, CommandRunner commandRunner, JobDescriptorProvider jobDescriptorProvider) {
-        this.jenkinsAdapter = jenkinsAdapter;
+    public AbortService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, CommandRunner commandRunner, JobDescriptorProvider jobDescriptorProvider, PipelineAPI pipelineAPI) {
+        this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
         this.commandRunner = commandRunner;
         this.jobDescriptorProvider = jobDescriptorProvider;
+        this.pipelineAPI = pipelineAPI;
     }
 
     public void abort(String jobId) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
-        WorkflowJob workflowJob = jenkinsAdapter.getWorkflowJob(job.url());
+        WorkflowJob workflowJob = pipelineAPI.getWorkflowJob(job.url());
         if (!workflowJob.isRunning()) {
             shellPrinter.println("Job " + jobId + " is not running");
             return;
@@ -47,7 +46,7 @@ public class AbortService {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
-        WorkflowJob workflowJob = jenkinsAdapter.getWorkflowJob(job.url());
+        WorkflowJob workflowJob = pipelineAPI.getWorkflowJob(job.url());
         if (!workflowJob.isRunning()) {
             shellPrinter.println("Job " + jobId + " is not running");
             return;
@@ -57,17 +56,17 @@ public class AbortService {
     }
 
     private void abort(JobDescriptor job, int buildNumber) {
-        jenkinsAdapter.abortJob(job.url(), buildNumber);
+        jenkinsAPI.abortJob(job.url(), buildNumber);
 
         // todo: remove calling wfapi (replace with jenkins api calling)
         OperationParameters<WorkflowRun> parameters = OperationParameters.<WorkflowRun>builder()
             .withProgressBar(new Spinner("Aborting job " + job.name()))
-            .withCompletionChecker(() -> jenkinsAdapter.getJobBuildDescription(job.url(), buildNumber))
+            .withCompletionChecker(() -> pipelineAPI.getJobBuildDescription(job.url(), buildNumber))
             .withSuccessWhen(workflowRun -> workflowRun.status() == Status.ABORTED)
             .onSuccess(ignored -> colored("✓ ", GREEN) + "Job " + job.name() + " aborted")
             .withTimeout(60)
             .build();
 
-        commandRunner.start(() -> jenkinsAdapter.abortJob(job.url(), buildNumber), parameters);
+        commandRunner.start(() -> jenkinsAPI.abortJob(job.url(), buildNumber), parameters);
     }
 }

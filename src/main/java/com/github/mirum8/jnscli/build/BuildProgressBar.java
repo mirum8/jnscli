@@ -1,6 +1,6 @@
 package com.github.mirum8.jnscli.build;
 
-import com.github.mirum8.jnscli.jenkins.JenkinsAdapter;
+import com.github.mirum8.jnscli.jenkins.PipelineAPI;
 import com.github.mirum8.jnscli.jenkins.WorkflowRun;
 import com.github.mirum8.jnscli.runner.ProgressBar;
 
@@ -12,13 +12,13 @@ import java.util.List;
 public class BuildProgressBar implements ProgressBar {
     private static final long DEFAULT_STAGE_DURATION = 60000L;
 
-    private final JenkinsAdapter jenkinsAdapter;
+    private final PipelineAPI pipelineAPI;
     private final String jobName;
     private final int buildNumber;
     private List<WorkflowRun.Stage> stagesOfPreviousBuild;
 
-    public BuildProgressBar(JenkinsAdapter jenkinsAdapter, String jobName, int buildNumber) {
-        this.jenkinsAdapter = jenkinsAdapter;
+    public BuildProgressBar(PipelineAPI pipelineAPI, String jobName, int buildNumber) {
+        this.pipelineAPI = pipelineAPI;
         this.jobName = jobName;
         this.buildNumber = buildNumber;
     }
@@ -37,7 +37,7 @@ public class BuildProgressBar implements ProgressBar {
     }
 
     private List<String> runningMessageForFirstBuild() {
-        WorkflowRun workflowRun = jenkinsAdapter.getJobBuildDescription(jobName, 1);
+        WorkflowRun workflowRun = pipelineAPI.getJobBuildDescription(jobName, 1);
         return workflowRun.stages().stream()
             .map(stage -> getProgressBar(stage, DEFAULT_STAGE_DURATION))
             .toList();
@@ -57,7 +57,7 @@ public class BuildProgressBar implements ProgressBar {
 
     private List<WorkflowRun.Stage> getStagesOfPreviousBuild() {
         if (stagesOfPreviousBuild == null) {
-            stagesOfPreviousBuild = jenkinsAdapter.getJobBuildDescription(jobName, buildNumber - 1).stages();
+            stagesOfPreviousBuild = pipelineAPI.getJobBuildDescription(jobName, buildNumber - 1).stages();
         }
         return stagesOfPreviousBuild;
     }
@@ -72,7 +72,7 @@ public class BuildProgressBar implements ProgressBar {
             .toList();
         boolean reset = false;
         List<String> updatedProgressBars = new ArrayList<>(initialProgressBar);
-        var workflowRun = jenkinsAdapter.getJobBuildDescription(jobName, buildNumber);
+        var workflowRun = pipelineAPI.getJobBuildDescription(jobName, buildNumber);
         for (int i = 0; i < workflowRun.stages().size(); i++) {
             if (stagesOfPreviousBuild.size() <= i) {
                 reset = true;

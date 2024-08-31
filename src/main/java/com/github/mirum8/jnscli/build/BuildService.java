@@ -37,30 +37,33 @@ class BuildService {
     public static final String FINISHED_PREFIX = "Finished: ";
 
     private final ShellPrinter shellPrinter;
-    private final JenkinsAdapter jenkinsAdapter;
+    private final JenkinsAPI jenkinsAPI;
     private final ShellPrompter shellPrompter;
     private final AbortService abortService;
     private final CommandRunner commandRunner;
     private final ParameterService parameterService;
     private final JobDescriptorProvider jobDescriptorProvider;
     private final AiService aiService;
+    private final PipelineAPI pipelineAPI;
 
     BuildService(ShellPrinter shellPrinter,
-                 JenkinsAdapter jenkinsAdapter,
+                 JenkinsAPI jenkinsAPI,
                  ShellPrompter shellPrompter,
                  AbortService abortService,
                  CommandRunner commandRunner,
                  ParameterService parameterService,
                  JobDescriptorProvider jobDescriptorProvider,
-                 AiService aiService) {
+                 AiService aiService,
+                 PipelineAPI pipelineAPI) {
         this.shellPrinter = shellPrinter;
-        this.jenkinsAdapter = jenkinsAdapter;
+        this.jenkinsAPI = jenkinsAPI;
         this.shellPrompter = shellPrompter;
         this.abortService = abortService;
         this.commandRunner = commandRunner;
         this.parameterService = parameterService;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.aiService = aiService;
+        this.pipelineAPI = pipelineAPI;
     }
 
     void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi) {
@@ -68,7 +71,7 @@ class BuildService {
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
         String jobUrl = job.url();
-        WorkflowJob workflowJob = jenkinsAdapter.getWorkflowJob(jobUrl);
+        WorkflowJob workflowJob = pipelineAPI.getWorkflowJob(jobUrl);
         if (!workflowJob.buildable()) {
             throw new IllegalArgumentException("The job is not buildable");
         }
@@ -98,8 +101,8 @@ class BuildService {
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
                 commandRunner.showProgress(OperationParameters.<BuildInfo>builder()
-                    .withProgressBar(new BuildProgressBar(jenkinsAdapter, job.url(), workflowJob.nextBuildNumber()))
-                    .withCompletionChecker(() -> jenkinsAdapter.getJobBuildInfo(job.url(), workflowJob.nextBuildNumber()))
+                    .withProgressBar(new BuildProgressBar(pipelineAPI, job.url(), workflowJob.nextBuildNumber()))
+                    .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), workflowJob.nextBuildNumber()))
                     .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
                     .withFailureWhen(buildInfo -> buildInfo.status() == FAILED || buildInfo.status() == FAILURE || buildInfo.status() == ABORTED)
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
@@ -108,7 +111,7 @@ class BuildService {
             } else {
                 commandRunner.showProgress(OperationParameters.<WorkflowJob>builder()
                     .withProgressBar(new Spinner("Job " + job.name() + " is running"))
-                    .withCompletionChecker(() -> jenkinsAdapter.getWorkflowJob(job.url()))
+                    .withCompletionChecker(() -> pipelineAPI.getWorkflowJob(job.url()))
                     .withSuccessWhen(wj -> wj.color().equals("blue"))
                     .withFailureWhen(wj -> wj.color().equals("red") || wj.color().equals("aborted"))
                     .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
@@ -129,10 +132,10 @@ class BuildService {
         record RunWithBuildInfo(Run run, BuildInfo buildInfo) {
         }
 
-        List<RunWithBuildInfo> runningBuilds = jenkinsAdapter.getJobRuns(job.url())
+        List<RunWithBuildInfo> runningBuilds = pipelineAPI.getJobRuns(job.url())
             .stream()
             .filter(run -> run.status().equals(IN_PROGRESS))
-            .map(run -> new RunWithBuildInfo(run, jenkinsAdapter.getJobBuildInfo(job.url(), run.id())))
+            .map(run -> new RunWithBuildInfo(run, jenkinsAPI.getJobBuildInfo(job.url(), run.id())))
             .toList();
 
         if (runningBuilds.isEmpty()) {
@@ -185,7 +188,7 @@ class BuildService {
         long start = 0;
         ProgressiveConsoleText progressiveConsoleText;
         do {
-            progressiveConsoleText = jenkinsAdapter.getProgressiveConsoleText(jobUrl, buildNumber, start);
+            progressiveConsoleText = jenkinsAPI.getProgressiveConsoleText(jobUrl, buildNumber, start);
             shellPrinter.print(progressiveConsoleText.text());
             start = progressiveConsoleText.nextStart();
             Threads.sleepSecs(3);
@@ -197,14 +200,14 @@ class BuildService {
     }
 
     private String getErrorMessage(String jobUrl, int buildNumber, boolean useAi) {
-        WorkflowRun workflowRun = jenkinsAdapter.getJobBuildDescription(jobUrl, buildNumber);
+        WorkflowRun workflowRun = pipelineAPI.getJobBuildDescription(jobUrl, buildNumber);
         String errors = getErrors(jobUrl, workflowRun);
         if (!errors.isEmpty()) {
             var message = useAi ? aiService.analyzeLog(errors) : errors.replace("ERROR", colored("ERROR", TextColor.RED)) + "\n"
                 + FINISHED_PREFIX + colored(workflowRun.status().name(), TextColor.RED);
             return "Error: + " + message;
         } else {
-            var message = useAi ? aiService.analyzeLog(jenkinsAdapter.getConsoleText(jobUrl, buildNumber)) : jenkinsAdapter.getConsoleText(jobUrl, buildNumber);
+            var message = useAi ? aiService.analyzeLog(jenkinsAPI.getConsoleText(jobUrl, buildNumber)) : jenkinsAPI.getConsoleText(jobUrl, buildNumber);
             return "Error: " + message;
         }
     }
@@ -212,19 +215,19 @@ class BuildService {
     private String getErrors(String jobUrl, WorkflowRun workflowRun) {
         return workflowRun.stages().stream().filter(stage -> !stage.status().equals(SUCCESS.name()))
             .findFirst()
-            .flatMap(stage -> jenkinsAdapter.getStageDescription(jobUrl, workflowRun.id(), stage.id())
+            .flatMap(stage -> pipelineAPI.getStageDescription(jobUrl, workflowRun.id(), stage.id())
                 .stageFlowNodes().stream()
                 .filter(stageFlowNode -> !stageFlowNode.status().equals(SUCCESS.name()))
                 .findFirst()
-                .map(stageFlowNode -> jenkinsAdapter.getNodeLog(jobUrl, workflowRun.id(), stageFlowNode.id()).text()))
+                .map(stageFlowNode -> pipelineAPI.getNodeLog(jobUrl, workflowRun.id(), stageFlowNode.id()).text()))
             .orElse("");
     }
 
     private RunningResult startJob(JobDescriptor job, Map<String, String> parameters) {
         String jobUrl = job.url();
         QueueItemLocation queueItemLocation = parameters != null && !parameters.isEmpty()
-            ? jenkinsAdapter.runJob(jobUrl, parameters.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList())
-            : jenkinsAdapter.runJob(jobUrl);
+            ? jenkinsAPI.runJob(jobUrl, parameters.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList())
+            : jenkinsAPI.runJob(jobUrl);
         return showStartingJobStatus(job, queueItemLocation);
     }
 
@@ -236,14 +239,14 @@ class BuildService {
             .filter(e -> !e.getKey().equals(fileName))
             .map(e -> e.getKey() + "=" + e.getValue())
             .toList();
-        QueueItemLocation queueItemLocation = jenkinsAdapter.runJobWithFileParam(job.url(), fileName, Path.of(filePath), parameters);
+        QueueItemLocation queueItemLocation = jenkinsAPI.runJobWithFileParam(job.url(), fileName, Path.of(filePath), parameters);
         return showStartingJobStatus(job, queueItemLocation);
     }
 
     private RunningResult showStartingJobStatus(JobDescriptor job, QueueItemLocation queueItemLocation) {
         return commandRunner.showProgress(OperationParameters.<QueueItem>builder()
             .withProgressBar(new Spinner("Starting job " + job.name()))
-            .withCompletionChecker(() -> jenkinsAdapter.getQueueItem(queueItemLocation.url()))
+            .withCompletionChecker(() -> jenkinsAPI.getQueueItem(queueItemLocation.url()))
             .withSuccessWhen(queueItem -> queueItem != null && QueueItemType.LEFT_ITEM == queueItem.type())
             .onSuccess(ignored -> colored("✓ ", TextColor.GREEN) + "Job " + job.name() + " started")
             .withTimeout(90)

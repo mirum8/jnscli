@@ -3,7 +3,7 @@ package com.github.mirum8.jnscli.list;
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
 import com.github.mirum8.jnscli.context.JobType;
 import com.github.mirum8.jnscli.context.JobsContext;
-import com.github.mirum8.jnscli.jenkins.JenkinsAdapter;
+import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.Job;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
@@ -14,18 +14,18 @@ import java.util.List;
 
 @Service
 public class ListService {
-    private final JenkinsAdapter jenkinsAdapter;
+    private final JenkinsAPI jenkinsAPI;
     private final JobsContext jobsContext;
     private final JobListTableFormatter jobListTableFormatter;
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
     private final JobDescriptorProvider jobDescriptorProvider;
 
-    public ListService(JenkinsAdapter jenkinsAdapter,
+    public ListService(JenkinsAPI jenkinsAPI,
                        JobsContext jobsContext,
                        JobListTableFormatter jobListTableFormatter,
                        RefreshableMultilineRenderer refreshableMultilineRenderer,
                        JobDescriptorProvider jobDescriptorProvider) {
-        this.jenkinsAdapter = jenkinsAdapter;
+        this.jenkinsAPI = jenkinsAPI;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.jobsContext = jobsContext;
         this.jobListTableFormatter = jobListTableFormatter;
@@ -33,7 +33,7 @@ public class ListService {
     }
 
     public void listJobs() {
-        List<Job> jobs = jenkinsAdapter.getJobs();
+        List<Job> jobs = jenkinsAPI.getJobs();
         jobsContext.refreshJobIds(jobs, false);
         renderJobList(jobs);
     }
@@ -44,7 +44,7 @@ public class ListService {
         if (jobDescriptor.type() != JobType.FOLDER) {
             throw new IllegalArgumentException("Job with id " + folderId + " is not a folder");
         }
-        List<Job> jobs = jenkinsAdapter.getFolderJobs(jobDescriptor.url()).jobs().stream()
+        List<Job> jobs = jenkinsAPI.getFolderJobs(jobDescriptor.url()).jobs().stream()
             .map(job -> job.copyWithName(jobDescriptor.name() + "/" + job.name()))
             .toList();
         jobsContext.refreshJobIds(jobs, true);
