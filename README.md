@@ -230,6 +230,9 @@ After configuring the AI settings, you can test the AI service availability:
 jns ai test
 ```
 
+Now you can use `--ai` parameter in the 'build' and 'error' commands to analyze build errors with AI.
+![Analyze error with AI](casts/getErrorWithAI.gif)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
