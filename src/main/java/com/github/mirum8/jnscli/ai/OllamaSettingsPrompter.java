@@ -32,7 +32,7 @@ public class OllamaSettingsPrompter implements AiSettingsPrompter {
     }
 
     @Override
-    public LlmSettings promptSettings(String llmProvider) {
+    public LlmSettings promptSettings() {
         String ollamaEndpoint = prompter.promptString("Enter Ollama endpoint", DEFAULT_ENDPOINT);
         OllamaAPI ollamaApi = new OllamaAPI(ollamaEndpoint);
         if (!ollamaApi.ping()) {

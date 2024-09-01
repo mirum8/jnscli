@@ -23,7 +23,7 @@ public class AiService {
 
     public void configure() {
         String provider = prompter.promptSelectFromList("Select AI provider", LlmSettings.supportedProviders());
-        LlmSettings llmSettings = aiSettingsPrompterFactory.create(provider).promptSettings(provider);
+        LlmSettings llmSettings = aiSettingsPrompterFactory.create(provider).promptSettings();
         shellPrinter.println("Settings are saved.");
         settingsService.writeAiSettings(llmSettings);
     }

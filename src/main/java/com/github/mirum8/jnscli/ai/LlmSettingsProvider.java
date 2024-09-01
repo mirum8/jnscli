@@ -17,6 +17,7 @@ public class LlmSettingsProvider implements AiSettingsProvider {
         return Optional.ofNullable(props.getProperty(PROPERTIES_AI_PROVIDER))
             .map(provider -> switch (provider) {
                 case LlmSettings.PROVIDERS_OLLAMA -> new LlmSettings.Ollama(props);
+                case LlmSettings.PROVIDERS_OPENAI -> new LlmSettings.OpenAI(props);
                 default -> null;
             });
     }

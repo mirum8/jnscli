@@ -233,5 +233,80 @@
     "name": "io.github.ollama4j.models.request.CustomModelFilePathRequest",
     "allPublicMethods": true,
     "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.Model",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.CreateChatCompletionRequest",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$UserMessage$UserMessageWithTextContent",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$SystemMessage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$UserMessage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$UserMessage$UserMessageWithTextContent",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$UserMessage$UserMessageWithContentParts",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$AssistantMessage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatMessage$ToolMessage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatCompletion",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatCompletion$Choice",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.ChatCompletion$Choice$Message",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.github.stefanbratanov.jvm.openai.Usage",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
   }
 ]
