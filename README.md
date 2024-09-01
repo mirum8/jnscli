@@ -232,7 +232,7 @@ jns ai test
 
 Now you can use `--ai` parameter in the 'build' and 'error' commands to analyze build errors with AI.
 
-![Analyze error with AI](casts/getErrorWithAI.gif)
+![Analyze error with AI](casts/getErrorWithAi.gif)
 
 ## Contributing
 
