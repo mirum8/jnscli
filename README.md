@@ -218,10 +218,16 @@ If parameters are not specified, the command will return the error information f
 
 ### AI Commands
 
+AI-powered error analysis is available for Jenkins builds. To use this feature, you need to configure the AI settings (
+Ollama and OpenAI are supported as AI services):
 ```shell
+jns ai configure
+```
 
-jns ai configure # Configure AI settings
-jns ai test # Test AI functionality
+After configuring the AI settings, you can test the AI service availability:
+
+```shell
+jns ai test
 ```
 
 ## Contributing
