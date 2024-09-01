@@ -4,7 +4,7 @@
 </div>
 JnsCLI is a command-line interface for Jenkins, the popular CI/CD automation server. This tool allows you to
 interact with your Jenkins server directly from the command line, making it easier to manage jobs, builds, and server
-configurations without the need for the web interface.
+configurations without the need for the web interface. It also supports AI-powered error analysis to help you quickly identify and fix build errors.
 
 ## Table of Contents
 
@@ -19,9 +19,10 @@ configurations without the need for the web interface.
     - [Connect](#connect)
     - [Alias](#alias)
     - [Info](#info)
+  - [Error](#error)
+  - [AI Commands](#ai-commands)
 - [Contributing](#contributing)
 - [License](#license)
-
 
 ## Quick Start (Installation from Binary)
 
@@ -98,6 +99,8 @@ echo "export PATH=\$PATH:$HOME/.local/bin/" >> $HOME/.zshrc && source $HOME/.zsh
 - Get information about a job and its builds
 - Abort a running job
 - Manage job aliases
+- Retrieve and analyze build errors
+- AI-powered error analysis
 
 ## Usage
 
@@ -126,14 +129,17 @@ jns list <folder>
 Run a job on the Jenkins server:
 
 ```shell
-jns build <jobId|jobName> [-p, --params <key=value>...] [-q, --quiet] [-l, --log]
+jns build <jobId|jobName> [-p, --params <key=value>...] [-q, --quiet] [-l, --log] [--ai]
 ```
+
 ![Build job](casts/build.gif)
 
 You can also use an ID number (prefixed by '%') from the 'list' output to start a job:
+
 ![Build job by ID](casts/buildById.gif)
 
 If the job already started, you can abort the previous build and start a new one (or cancel the new build):
+
 ![Abort and build](casts/abortAndBuild.gif)
 
 Options:
@@ -147,15 +153,15 @@ Options:
   jns build <jobId> \
     -p key1=value1  \
     -p key2=value2
-
   ```
+- `--ai`: Analyze errors using AI if the build fails.
 
 ### Abort
 
 Abort a running job:
 
 ```shell
-jns abort <jobId> [buildNumber]
+jns abort <jobId> [--b, --buildNumber]
 ```
 
 ### Connect
@@ -192,6 +198,31 @@ Options:
 - `-r, --includeRunning`: Include running builds
 - `-l, --limit`: Limit the number of builds (default: 3)
 - `-m, --my-builds`: Show builds run by the current user
+
+### Error
+
+Get error information for the last or a specific build:
+
+```shell
+jns error <jobId> [Options]
+```
+
+Options:
+
+- `-b, --buildNumber`: Specify build number
+- `-m, --myBuild`: Show error for the last build run by the current user
+- `--ai`: Analyze errors with AI
+
+If parameters are not specified, the command will return the error information for the last failed build within the last
+5 builds.
+
+### AI Commands
+
+```shell
+
+jns ai configure # Configure AI settings
+jns ai test # Test AI functionality
+```
 
 ## Contributing
 

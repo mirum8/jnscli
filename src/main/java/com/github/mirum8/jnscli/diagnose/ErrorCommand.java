@@ -15,12 +15,10 @@ public class ErrorCommand {
     }
 
     @Command(command = "error", description = "Get error for the last or specific build")
-    void error(
-            String jobId,
-            @Option(longNames = "buildNumber", shortNames = 'b') Integer buildNumber,
-            @Option(longNames = "myBuild", shortNames = 'm') boolean myBuild,
-            @Option(longNames = "ai") boolean useAi
-    ) {
+    void error(String jobId,
+               @Option(longNames = "buildNumber", shortNames = 'b') Integer buildNumber,
+               @Option(longNames = "myBuild", shortNames = 'm') boolean myBuild,
+               @Option(longNames = "ai", description = "Analyze errors with AI") boolean useAi) {
         errorService.getError(jobId, buildNumber, myBuild, useAi);
     }
 }
