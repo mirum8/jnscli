@@ -41,6 +41,7 @@ public class AiService {
     public void test() {
         settingsService.readAiSettings()
             .map(aiClientFactory::create)
-            .ifPresent(aiClient -> shellPrinter.println(aiClient.generate("Who are you?")));
+            .ifPresentOrElse(aiClient -> shellPrinter.println(aiClient.generate("Who are you?")),
+                () -> shellPrinter.println("AI settings not configured. Run 'ai configure' command."));
     }
 }
