@@ -7,7 +7,7 @@ public class OpenAIClient implements AiClient {
     private final String model;
 
     public OpenAIClient(LlmSettings.OpenAI settings) {
-        OpenAI openAI = OpenAI.newBuilder(settings.apiKey()).build();
+        OpenAI openAI = OpenAI.newBuilder(settings.apiKey()).baseUrl(settings.endpoint()).build();
         this.chatClient = openAI.chatClient();
         this.model = settings.model();
     }
