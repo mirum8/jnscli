@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static com.github.mirum8.jnscli.jenkins.Status.*;
@@ -32,6 +33,7 @@ import static java.util.stream.Collectors.toMap;
 
 @Service
 class BuildService {
+    private static final Logger log = Logger.getLogger(BuildService.class.getName());
     public static final String NOT_ABORT = "Do not abort. Start new build";
     public static final String ABORT_ALL = "Abort all. Start new build";
     public static final String CANCEL_BUILD = "Cancel new build";

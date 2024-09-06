@@ -7,9 +7,12 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Logger;
 
 @Component
 public class CommandRunner {
+    private static final Logger log = Logger.getLogger(CommandRunner.class.getName());
+
     private final ShellPrinter shellPrinter;
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
     private volatile boolean running = true;
@@ -110,6 +113,7 @@ public class CommandRunner {
                     refreshableMultilineRenderer.render(operationParameters.progressBar().runningMessage());
                 } catch (Exception e) {
                     intervalMultiplier.updateAndGet(x -> x * 2);
+                    log.severe("Failed to render progress bar: " + e.getMessage() + "; " + "Increasing refresh interval: " + intervalMultiplier + ". Attempts: " + attempts);
                     if (attempts++ > 5) {
                         shellPrinter.println("Progress bar rendering failed. Check build status on the job page.");
                         running = false;

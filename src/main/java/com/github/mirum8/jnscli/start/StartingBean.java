@@ -4,11 +4,17 @@ import com.github.mirum8.jnscli.list.ListService;
 import com.github.mirum8.jnscli.settings.Settings;
 import com.github.mirum8.jnscli.settings.SettingsService;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
+import com.github.mirum8.jnscli.util.FileUtil;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import static com.github.mirum8.jnscli.shell.TextColor.RED;
 import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
@@ -31,7 +37,9 @@ public class StartingBean implements InitializingBean {
     }
 
     @Override
-    public void afterPropertiesSet() {
+    public void afterPropertiesSet() throws IOException {
+        setupLogger();
+
         Settings settings = settingsService.readSettings();
         if (settings.server().isEmpty() || settings.username().isEmpty() || settings.key().isEmpty()) {
             shellPrinter.println(colored("Please configure your settings first", RED));
@@ -42,6 +50,14 @@ public class StartingBean implements InitializingBean {
                 listService.listJobs();
             }
         }
+    }
+
+    private static void setupLogger() throws IOException {
+        Logger rootLogger = Logger.getLogger("");
+        rootLogger.setLevel(Level.SEVERE);
+        FileHandler handler = new FileHandler(FileUtil.resolveHomeDir("~/.config/jns/error.log"), true);
+        handler.setFormatter(new SimpleFormatter());
+        rootLogger.addHandler(handler);
     }
 
 
