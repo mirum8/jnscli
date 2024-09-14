@@ -77,13 +77,12 @@ public class BuildProgressBar implements ProgressBar {
             if (stagesOfPreviousBuild.size() <= i) {
                 reset = true;
             }
-            WorkflowRun.Stage previousBuildStage = stagesOfPreviousBuild.get(i);
             // if the stage name is different, reset the progress bars
-            if (!reset && !previousBuildStage.name().equals(workflowRun.stages().get(i).name())) {
+            if (!reset && !stagesOfPreviousBuild.get(i).name().equals(workflowRun.stages().get(i).name())) {
                 updatedProgressBars = updatedProgressBars.subList(0, i + 1);
                 reset = true;
             }
-            long duration = !reset ? previousBuildStage.durationMillis() : DEFAULT_STAGE_DURATION;
+            long duration = !reset ? stagesOfPreviousBuild.get(i).durationMillis() : DEFAULT_STAGE_DURATION;
             if (i < updatedProgressBars.size()) {
                 updatedProgressBars.set(i, getProgressBar(workflowRun.stages().get(i), duration));
             } else {
