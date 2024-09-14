@@ -30,14 +30,14 @@ Download the binary for your platform:
 
 ```shell
 # for x86-64
-wget -O jns-0.1.0-amd64 https://github.com/mirum8/jnscli/releases/download/v0.1.0/jns-0.1.0-amd64 \
-&& chmod +x jns-0.1.0-amd64 && mkdir -p $HOME/.local/bin/ \
-&& mv jns-0.1.0-amd64 $HOME/.local/bin/jns
+wget -O jns-0.1.1-amd64 https://github.com/mirum8/jnscli/releases/download/v0.1.1/jns-0.1.1-amd64 \
+&& chmod +x jns-0.1.1-amd64 && mkdir -p $HOME/.local/bin/ \
+&& mv jns-0.1.1-amd64 $HOME/.local/bin/jns
 
 # for ARM (Apple M1)
-wget -O jns-0.1.0-arm64 https://github.com/mirum8/jnscli/releases/download/v0.1.0/jns-0.1.0-arm64 \
-&& chmod +x jns-0.1.0-arm64 && mkdir -p $HOME/.local/bin/ \
-&& mv jns-0.1.0-arm64 $HOME/.local/bin/jns
+wget -O jns-0.1.1-arm64 https://github.com/mirum8/jnscli/releases/download/v0.1.1/jns-0.1.1-arm64 \
+&& chmod +x jns-0.1.1-arm64 && mkdir -p $HOME/.local/bin/ \
+&& mv jns-0.1.1-arm64 $HOME/.local/bin/jns
 ```
 
 Add the binary to your PATH:
