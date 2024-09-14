@@ -57,8 +57,6 @@ public class AbortService {
     }
 
     private void abort(JobDescriptor job, int buildNumber) {
-        jenkinsAPI.abortJob(job.url(), buildNumber);
-
         OperationParameters<BuildInfo> parameters = OperationParameters.<BuildInfo>builder()
             .withProgressBar(new Spinner("Aborting job " + job.name()))
             .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))

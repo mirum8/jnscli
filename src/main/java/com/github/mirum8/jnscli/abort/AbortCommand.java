@@ -14,12 +14,11 @@ public class AbortCommand {
     }
 
     @Command(command = "abort", description = "Abort a job on Jenkins server")
-    public void abort(String jobId) {
-        abortService.abort(jobId);
-    }
-
-    @Command(command = "abort", description = "Abort a specific build of a job on Jenkins server")
-    public void abort(String jobId, @Option(shortNames = 'b', longNames = "buildNumber") int buildNumber) {
-        abortService.abort(jobId, buildNumber);
+    public void abort(String jobId, @Option(shortNames = 'b', longNames = "buildNumber") Integer buildNumber) {
+        if (buildNumber == null) {
+            abortService.abort(jobId);
+        } else {
+            abortService.abort(jobId, buildNumber);
+        }
     }
 }
