@@ -80,6 +80,7 @@
                         <arg>--enable-url-protocols=https</arg>
                     </buildArgs>
                     <imageName>jns</imageName>
+                    <fallback>false</fallback>
                 </configuration>
             </plugin>
             <plugin>
