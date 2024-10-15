@@ -42,7 +42,7 @@ public class ErrorService {
 
     public void getError(String jobId, Integer buildNumber, boolean myBuild, boolean useAi) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
+            .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
         BuildInfo buildInfo;
         if (buildNumber != null) {
@@ -62,20 +62,17 @@ public class ErrorService {
             return;
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append(colored("Build Number: ", CYAN)).append(buildInfo.number()).append("\n");
-        sb.append(colored("Started By: ", CYAN)).append(buildInfo.startedBy().orElse("Unknown")).append("\n");
-        sb.append(colored("Status: ", CYAN)).append(getColored(buildInfo.status())).append("\n");
+        String buildParametersForPrinting = colored("Build Number: ", CYAN) + buildInfo.number() + "\n" +
+            colored("Started By: ", CYAN) + buildInfo.startedBy().orElse("Unknown") + "\n" +
+            colored("Status: ", CYAN) + getColored(buildInfo.status());
+        shellPrinter.println(buildParametersForPrinting);
 
         String errors = getErrors(job, buildInfo.number());
-
-        if (!errors.isEmpty()) {
-            sb.append(useAi ? colored("AI analysis: ", MAGENTA) + aiService.analyzeLog(errors) : colored("Errors: ", CYAN) + errors);
-        } else {
-            sb.append("No errors found.\n");
+        if (errors.isEmpty()) {
+            shellPrinter.println("No errors found.");
         }
-
-        shellPrinter.println(sb.toString());
+        String errorsText = useAi ? colored("AI analysis: ", MAGENTA) + aiService.analyzeLog(errors) : errors;
+        shellPrinter.println(errorsText);
     }
 
     private BuildInfo findLatestBuildByCurrentUser(JobDescriptor job) {
@@ -83,21 +80,21 @@ public class ErrorService {
         if (job.type() == JobType.WORKFLOW) {
             List<Run> runs = pipelineAPI.getJobRuns(job.url());
             return runs.stream()
-                    .sorted(Comparator.comparingInt(Run::id).reversed())
-                    .limit(5)
-                    .map(run -> jenkinsAPI.getJobBuildInfo(job.url(), run.id()))
-                    .filter(run -> run.status() != Status.SUCCESS)
-                    .filter(buildInfo -> buildInfo.startedBy().map(startedBy -> startedBy.equals(currentUser)).orElse(false))
-                    .findFirst().orElse(null);
+                .sorted(Comparator.comparingInt(Run::id).reversed())
+                .limit(5)
+                .map(run -> jenkinsAPI.getJobBuildInfo(job.url(), run.id()))
+                .filter(run -> run.status() != Status.SUCCESS)
+                .filter(buildInfo -> buildInfo.startedBy().map(startedBy -> startedBy.equals(currentUser)).orElse(false))
+                .findFirst().orElse(null);
         } else {
             WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(job.url());
             return workflowJob.builds().stream()
-                    .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
-                    .limit(5)
-                    .map(build -> jenkinsAPI.getJobBuildInfo(job.url(), build.number()))
-                    .filter(buildInfo -> buildInfo.status() != Status.SUCCESS)
-                    .filter(buildInfo -> buildInfo.startedBy().map(startedBy -> startedBy.equals(currentUser)).orElse(false))
-                    .findFirst().orElse(null);
+                .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
+                .limit(5)
+                .map(build -> jenkinsAPI.getJobBuildInfo(job.url(), build.number()))
+                .filter(buildInfo -> buildInfo.status() != Status.SUCCESS)
+                .filter(buildInfo -> buildInfo.startedBy().map(startedBy -> startedBy.equals(currentUser)).orElse(false))
+                .findFirst().orElse(null);
         }
     }
 
@@ -105,21 +102,21 @@ public class ErrorService {
         if (job.type() == JobType.WORKFLOW) {
             List<Run> runs = pipelineAPI.getJobRuns(job.url());
             return runs.stream()
-                    .sorted(Comparator.comparingInt(Run::id).reversed())
-                    .limit(5)
-                    .map(run -> jenkinsAPI.getJobBuildInfo(job.url(), run.id()))
-                    .filter(buildInfo -> buildInfo.status() != Status.SUCCESS)
-                    .findFirst()
-                    .orElse(null);
+                .sorted(Comparator.comparingInt(Run::id).reversed())
+                .limit(5)
+                .map(run -> jenkinsAPI.getJobBuildInfo(job.url(), run.id()))
+                .filter(buildInfo -> buildInfo.status() != Status.SUCCESS)
+                .findFirst()
+                .orElse(null);
         } else {
             WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(job.url());
             return workflowJob.builds().stream()
-                    .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
-                    .limit(5)
-                    .map(build -> jenkinsAPI.getJobBuildInfo(job.url(), build.number()))
-                    .filter(buildInfo -> buildInfo.status() != Status.SUCCESS)
-                    .findFirst()
-                    .orElse(null);
+                .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
+                .limit(5)
+                .map(build -> jenkinsAPI.getJobBuildInfo(job.url(), build.number()))
+                .filter(buildInfo -> buildInfo.status() != Status.SUCCESS)
+                .findFirst()
+                .orElse(null);
         }
     }
 
@@ -130,14 +127,14 @@ public class ErrorService {
                 return jenkinsAPI.getConsoleText(job.url(), buildNumber);
             }
             return workflowRun.stages().stream()
-                    .filter(stage -> !stage.status().equals(Status.SUCCESS.name()))
+                .filter(stage -> !stage.status().equals(Status.SUCCESS.name()))
+                .findFirst()
+                .flatMap(stage -> pipelineAPI.getStageDescription(job.url(), workflowRun.id(), stage.id())
+                    .stageFlowNodes().stream()
+                    .filter(stageFlowNode -> !stageFlowNode.status().equals(Status.SUCCESS.name()))
                     .findFirst()
-                    .flatMap(stage -> pipelineAPI.getStageDescription(job.url(), workflowRun.id(), stage.id())
-                            .stageFlowNodes().stream()
-                            .filter(stageFlowNode -> !stageFlowNode.status().equals(Status.SUCCESS.name()))
-                            .findFirst()
-                            .map(stageFlowNode -> pipelineAPI.getNodeLog(job.url(), workflowRun.id(), stageFlowNode.id()).text()))
-                    .orElse(jenkinsAPI.getConsoleText(job.url(), buildNumber));
+                    .map(stageFlowNode -> pipelineAPI.getNodeLog(job.url(), workflowRun.id(), stageFlowNode.id()).text()))
+                .orElse(jenkinsAPI.getConsoleText(job.url(), buildNumber));
         } else {
             return jenkinsAPI.getConsoleText(job.url(), buildNumber);
         }
