@@ -54,7 +54,7 @@ public class StartingBean implements InitializingBean {
 
     private static void setupLogger() throws IOException {
         Logger rootLogger = Logger.getLogger("");
-        rootLogger.setLevel(Level.SEVERE);
+        rootLogger.setLevel(Level.WARNING);
         FileHandler handler = new FileHandler(FileUtil.resolveHomeDir("~/.config/jns/error.log"), true);
         handler.setFormatter(new SimpleFormatter());
         rootLogger.addHandler(handler);

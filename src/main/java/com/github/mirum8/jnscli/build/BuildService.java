@@ -9,9 +9,9 @@ import com.github.mirum8.jnscli.diagnose.ErrorService;
 import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.jenkins.QueueItem.QueueItemType;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
-import com.github.mirum8.jnscli.runner.OperationParameters;
-import com.github.mirum8.jnscli.runner.RunningResult;
+import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.runner.Spinner;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
@@ -89,7 +89,7 @@ class BuildService {
             ? promptParameters(workflowJob, parameters)
             : Map.of();
 
-        RunningResult runningResult = workflowJob.property().stream()
+        Result<Void> result = workflowJob.property().stream()
             .map(WorkflowJob.Property::parameterDefinitions)
             .filter(Objects::nonNull)
             .flatMap(List::stream)
@@ -99,14 +99,14 @@ class BuildService {
             .orElseGet(() -> startJob(job, filledParameters));
 
         int buildNumber = workflowJob.nextBuildNumber();
-        if (runningResult == RunningResult.FAILURE) {
+        if (result instanceof Result.Failure) {
             shellPrinter.println(getErrorMessage(job, buildNumber, useAi));
             shellPrinter.println(FINISHED_PREFIX + jenkinsAPI.getJobBuildInfo(job.url(), buildNumber).status().name());
             return;
         }
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
-                commandRunner.showProgress(OperationParameters.<BuildInfo>builder()
+                commandRunner.showProgress(CommandParameters.<BuildInfo>builder()
                     .withProgressBar(new BuildProgressBar(pipelineAPI, job.url(), buildNumber))
                     .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
                     .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
@@ -115,13 +115,16 @@ class BuildService {
                     .onFailure(ignored -> getErrorMessage(job, buildNumber, useAi))
                     .build());
             } else {
-                commandRunner.showProgress(OperationParameters.<WorkflowJob>builder()
-                    .withProgressBar(new Spinner("Job " + job.name() + " is running"))
+                commandRunner.showProgress(CommandParameters.<WorkflowJob>builder()
+                    .withProgressBar(Spinner.builder()
+                        .runningMessage("Job " + job.name() + " is running")
+                        .completeMessage(FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
+                        .errorMessage(FINISHED_PREFIX + colored(FAILED.name(), TextColor.RED) + "/nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
+                        .build()
+                    )
                     .withCompletionChecker(() -> jenkinsAPI.getWorkflowJob(job.url()))
                     .withSuccessWhen(wj -> wj.color().equals("blue"))
                     .withFailureWhen(wj -> wj.color().equals("red") || wj.color().equals("aborted"))
-                    .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
-                    .onFailure(ignored -> FINISHED_PREFIX + colored(FAILED.name(), TextColor.RED) + "/nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
                     .build());
             }
         }
@@ -210,7 +213,7 @@ class BuildService {
         return useAi ? colored("AI analysis: ", TextColor.MAGENTA) + aiService.analyzeLog(errors) : "Errors:\n" + errors;
     }
 
-    private RunningResult startJob(JobDescriptor job, Map<String, String> parameters) {
+    private Result<Void> startJob(JobDescriptor job, Map<String, String> parameters) {
         String jobUrl = job.url();
         QueueItemLocation queueItemLocation = parameters != null && !parameters.isEmpty()
             ? jenkinsAPI.runJob(jobUrl, parameters.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList())
@@ -218,7 +221,7 @@ class BuildService {
         return showStartingJobStatus(job, queueItemLocation);
     }
 
-    private RunningResult startJobWithFile(JobDescriptor job, Map<String, String> filledParameters, WorkflowJob.Property.ParameterDefinition fileParameter) {
+    private Result<Void> startJobWithFile(JobDescriptor job, Map<String, String> filledParameters, WorkflowJob.Property.ParameterDefinition fileParameter) {
         String fileName = fileParameter.name();
         String filePath = filledParameters.get(fileName);
         Objects.requireNonNull(filePath, "File parameter " + fileName + " is not filled");
@@ -230,12 +233,13 @@ class BuildService {
         return showStartingJobStatus(job, queueItemLocation);
     }
 
-    private RunningResult showStartingJobStatus(JobDescriptor job, QueueItemLocation queueItemLocation) {
-        return commandRunner.showProgress(OperationParameters.<QueueItem>builder()
-            .withProgressBar(new Spinner("Starting job " + job.name()))
+    private Result<Void> showStartingJobStatus(JobDescriptor job, QueueItemLocation queueItemLocation) {
+        return commandRunner.showProgress(CommandParameters.<QueueItem>builder()
+            .withProgressBar(Spinner.builder().runningMessage("Starting job " + job.name())
+                .completeMessage("Job " + job.name() + " started")
+                .build())
             .withCompletionChecker(() -> jenkinsAPI.getQueueItem(queueItemLocation.url()))
             .withSuccessWhen(queueItem -> queueItem != null && QueueItemType.LEFT_ITEM == queueItem.type())
-            .onSuccess(ignored -> colored("✓ ", TextColor.GREEN) + "Job " + job.name() + " started")
             .withTimeout(90)
             .onTimeoutError(() -> colored("✗ ", TextColor.RED) + "Job " + job.name() + " failed to start.")
             .build());

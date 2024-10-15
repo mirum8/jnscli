@@ -4,15 +4,15 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-public record OperationParameters<C>(
-    ProgressBar progressBar,
-    Supplier<C> completionChecker,
-    Predicate<C> successWhen,
-    Predicate<C> failureWhen,
-    Function<C, String> onSuccess,
-    Function<C, String> onFailure,
-    int timeout,
-    Supplier<String> timeoutMessage
+public record CommandParameters<C>(
+        ProgressBar progressBar,
+        Supplier<C> completionChecker,
+        Predicate<C> successWhen,
+        Predicate<C> failureWhen,
+        Function<C, String> onSuccess,
+        Function<C, String> onFailure,
+        int timeout,
+        Supplier<String> timeoutMessage
 ) {
     public static <C> OperationParametersBuilder<C> builder() {
         return new OperationParametersBuilder<>();
@@ -23,8 +23,8 @@ public record OperationParameters<C>(
         private Supplier<C> completionChecker = () -> null;
         private Predicate<C> successWhen = value -> true;
         private Predicate<C> failureWhen = value -> false;
-        private Function<C, String> onSuccess;
-        private Function<C, String> onFailure;
+        private Function<C, String> onSuccess = value -> null;
+        private Function<C, String> onFailure = value -> null;
         private int timeout = -1;
         private Supplier<String> timeoutMessage = () -> "Operation timed out";
 
@@ -68,16 +68,16 @@ public record OperationParameters<C>(
             return this;
         }
 
-        public OperationParameters<C> build() {
-            return new OperationParameters<>(
-                progressBar,
-                completionChecker,
-                successWhen,
-                failureWhen,
-                onSuccess,
-                onFailure,
-                timeout,
-                timeoutMessage
+        public CommandParameters<C> build() {
+            return new CommandParameters<>(
+                    progressBar,
+                    completionChecker,
+                    successWhen,
+                    failureWhen,
+                    onSuccess,
+                    onFailure,
+                    timeout,
+                    timeoutMessage
             );
         }
     }

@@ -1,7 +1,7 @@
 package com.github.mirum8.jnscli.ai;
 
+import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
-import com.github.mirum8.jnscli.runner.OperationParameters;
 import com.github.mirum8.jnscli.runner.Spinner;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
 import com.github.mirum8.jnscli.shell.TextColor;
@@ -50,8 +50,8 @@ public class OllamaSettingsPrompter implements AiSettingsPrompter {
 
     private String suggestPullingRecommendedModels(OllamaAPI ollamaAPI) {
         String selected = prompter.promptSelectFromList("Please choose a model for downloading", List.of(LLAMA + ":latest", PHI + ":latest"));
-        commandRunner.start(() -> pullModel(ollamaAPI, selected), OperationParameters.builder()
-            .withProgressBar(new Spinner("Pulling " + selected))
+        commandRunner.run(() -> pullModel(ollamaAPI, selected), CommandParameters.builder()
+            .withProgressBar(Spinner.builder("Pulling " + selected).build())
             .onSuccess(ignored -> colored("✓ ", TextColor.GREEN) + "The model has been successfully downloaded")
             .onFailure(ignored -> colored("✗ ", TextColor.RED) + "Failed to download the model")
             .build());

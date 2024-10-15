@@ -2,8 +2,8 @@ package com.github.mirum8.jnscli.connect;
 
 import com.github.mirum8.jnscli.jenkins.CheckConnectionResult;
 import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
+import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
-import com.github.mirum8.jnscli.runner.OperationParameters;
 import com.github.mirum8.jnscli.runner.Spinner;
 import com.github.mirum8.jnscli.settings.Settings;
 import com.github.mirum8.jnscli.settings.SettingsService;
@@ -36,8 +36,8 @@ class ConnectService {
         Settings settings = new Settings(serverName, username, key);
         settingsService.writeSettings(settings);
 
-        commandRunner.showProgress(OperationParameters.<CheckConnectionResult>builder()
-            .withProgressBar(new Spinner("Connecting to Jenkins server " + serverName))
+        commandRunner.showProgress(CommandParameters.<CheckConnectionResult>builder()
+            .withProgressBar(Spinner.builder().runningMessage("Connecting to Jenkins server " + serverName).build())
             .withCompletionChecker(() -> jenkinsAPI.checkConnection(settings))
             .withSuccessWhen(CheckConnectionResult::isSuccess)
             .withFailureWhen(CheckConnectionResult::isFailure)

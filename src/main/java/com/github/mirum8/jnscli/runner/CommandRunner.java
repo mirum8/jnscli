@@ -1,130 +1,97 @@
 package com.github.mirum8.jnscli.runner;
 
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
-import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.util.Threads;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Logger;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class CommandRunner {
-    private static final Logger log = Logger.getLogger(CommandRunner.class.getName());
 
-    private final ShellPrinter shellPrinter;
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
-    private volatile boolean running = true;
-    private final AtomicLong intervalMultiplier = new AtomicLong(1);
 
-    public CommandRunner(ShellPrinter shellPrinter, RefreshableMultilineRenderer refreshableMultilineRenderer) {
-        this.shellPrinter = shellPrinter;
+    public CommandRunner(RefreshableMultilineRenderer refreshableMultilineRenderer) {
         this.refreshableMultilineRenderer = refreshableMultilineRenderer;
     }
 
-    public <C> RunningResult start(Runnable operation, OperationParameters<C> operationParameters) {
-        running = true;
-        try {
-            startProgressBarInVirtualThread(operationParameters);
-            operation.run();
-            return processUntilCompleteOrTimeout(operationParameters);
+    public <C, R> Result<R> run(Callable<R> operation, CommandParameters<C> commandParameters) {
+        try (var progressBarExecutor = Executors.newScheduledThreadPool(0, Thread.ofVirtual().factory())) {
+            progressBarExecutor.scheduleAtFixedRate(() -> refreshableMultilineRenderer.render(commandParameters.progressBar().running()),
+                0, commandParameters.progressBar().refreshIntervalMillis(), TimeUnit.MILLISECONDS);
+            R result = operation.call();
+            Result<C> chekingResult = processUntilCompleteOrTimeout(commandParameters);
+            progressBarExecutor.shutdown();
+            return switch (chekingResult) {
+                case Result.Success<?> success -> {
+                    processSuccess(commandParameters, (C) success.value());
+                    yield new Result.Success<>(result);
+                }
+                case Result.Failure<?> failure when failure.value() != null -> {
+                    processFailure(commandParameters, (C) failure.value());
+                    yield new Result.Failure<>(result);
+                }
+                case Result.Failure<?> ignored -> {
+                    precessTimeout(commandParameters);
+                    yield new Result.Failure<>(result);
+                }
+            };
+        } catch (Exception e) {
+            throw new CommandRunnerException(e);
         } finally {
-            running = false;
             refreshableMultilineRenderer.reset();
         }
     }
 
-    public <C> RunningResult showProgress(OperationParameters<C> operationParameters) {
-        return start(() -> {
-        }, operationParameters);
+    public <C> void run(Runnable operation, CommandParameters<C> commandParameters) {
+        run(() -> {
+            operation.run();
+            return null;
+        }, commandParameters);
     }
 
-    private <C> RunningResult processUntilCompleteOrTimeout(OperationParameters<C> operationParameters) {
-        Instant timeout = operationParameters.timeout() > 0
-            ? Instant.now().plusSeconds(operationParameters.timeout())
+    public <C> Result<Void> showProgress(CommandParameters<C> commandParameters) {
+        return run(() -> null, commandParameters);
+    }
+
+    private <C> Result<C> processUntilCompleteOrTimeout(CommandParameters<C> commandParameters) {
+        Instant timeout = commandParameters.timeout() > 0
+            ? Instant.now().plusSeconds(commandParameters.timeout())
             : Instant.MAX;
 
-        int attempts = 0;
-        while (running) {
+        while (true) {
             if (timeout.isBefore(Instant.now())) {
-                running = false;
-                precessTimeout(operationParameters);
-                return RunningResult.FAILURE;
+                return new Result.Failure<>(null);
             }
-            C checkResult = null;
-            try {
-                checkResult = operationParameters.completionChecker().get();
-            } catch (Exception e) {
-                intervalMultiplier.updateAndGet(x -> x * 2);
-                if (attempts++ > 5) {
-                    shellPrinter.println("Failed to check operation completion. Check build status on the job page.");
-                    running = false;
-                }
+            C checkResult = commandParameters.completionChecker().get();
+            if (commandParameters.successWhen().test(checkResult)) {
+                return new Result.Success<>(checkResult);
             }
-            if (operationParameters.successWhen().test(checkResult)) {
-                running = false;
-                completeProgressBar(operationParameters);
-                processSuccess(operationParameters, checkResult);
-                return RunningResult.SUCCESS;
+            if (commandParameters.failureWhen().test(checkResult)) {
+                return new Result.Failure<>(checkResult);
             }
-            if (operationParameters.failureWhen().test(checkResult)) {
-                running = false;
-                processFailure(operationParameters, checkResult);
-                return RunningResult.FAILURE;
-            }
-            Threads.sleepSecs(5 * intervalMultiplier.get());
+            Threads.sleepSecs(5);
         }
-        return RunningResult.FAILURE;
     }
 
-    private <C> void processFailure(OperationParameters<C> operationParameters, C checkResult) {
-        pauseForProgressRenderingRefresh(operationParameters);
-        if (operationParameters.progressBar().notHideAfterCompletion()) {
-            refreshableMultilineRenderer.reset();
-        }
-        refreshableMultilineRenderer.render(operationParameters.onFailure().apply(checkResult));
-    }
-
-    private <C> void processSuccess(OperationParameters<C> operationParameters, C checkResult) {
-        pauseForProgressRenderingRefresh(operationParameters);
-        if (operationParameters.progressBar().notHideAfterCompletion()) {
-            refreshableMultilineRenderer.reset();
-        }
-        refreshableMultilineRenderer.render(operationParameters.onSuccess().apply(checkResult));
-    }
-
-    private <C> void precessTimeout(OperationParameters<C> operationParameters) {
-        pauseForProgressRenderingRefresh(operationParameters);
+    private <C> void processFailure(CommandParameters<C> commandParameters, C checkResult) {
+        refreshableMultilineRenderer.render(commandParameters.progressBar().failed());
         refreshableMultilineRenderer.reset();
-        refreshableMultilineRenderer.render(operationParameters.timeoutMessage().get());
+        refreshableMultilineRenderer.render(commandParameters.onFailure().apply(checkResult));
     }
 
-    private void pauseForProgressRenderingRefresh(OperationParameters<?> operationParameters) {
-        Threads.sleepMillis(operationParameters.progressBar().refreshIntervalMillis());
+    private <C> void processSuccess(CommandParameters<C> commandParameters, C checkResult) {
+        refreshableMultilineRenderer.render(commandParameters.progressBar().completed());
+        refreshableMultilineRenderer.reset();
+        refreshableMultilineRenderer.render(commandParameters.onSuccess().apply(checkResult));
     }
 
-    private void startProgressBarInVirtualThread(OperationParameters<?> operationParameters) {
-        Thread.ofVirtual().start(() -> {
-            int attempts = 0;
-            while (running) {
-                try {
-                    Threads.sleepMillis((operationParameters.progressBar().refreshIntervalMillis() * intervalMultiplier.get()));
-                    refreshableMultilineRenderer.render(operationParameters.progressBar().runningMessage());
-                } catch (Exception e) {
-                    intervalMultiplier.updateAndGet(x -> x * 2);
-                    log.severe("Failed to render progress bar: " + e.getMessage() + "; " + "Increasing refresh interval: " + intervalMultiplier + ". Attempts: " + attempts);
-                    if (attempts++ > 5) {
-                        shellPrinter.println("Progress bar rendering failed. Check build status on the job page.");
-                        running = false;
-                    }
-                }
-            }
-        });
+    private void precessTimeout(CommandParameters<?> commandParameters) {
+        refreshableMultilineRenderer.render(commandParameters.progressBar().failed());
+        refreshableMultilineRenderer.reset();
+        refreshableMultilineRenderer.render(commandParameters.timeoutMessage().get());
     }
-
-    private void completeProgressBar(OperationParameters<?> operationParameters) {
-        refreshableMultilineRenderer.render(operationParameters.progressBar().runningMessage());
-    }
-
 }

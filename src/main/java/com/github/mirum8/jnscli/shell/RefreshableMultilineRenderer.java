@@ -15,16 +15,14 @@ public class RefreshableMultilineRenderer {
     private int linesToRemove;
     private final Terminal terminal;
 
-    /**
-     * Constructor for RefreshableOutputRenderer.
-     *
-     * @param terminal Terminal instance used for output rendering.
-     */
     public RefreshableMultilineRenderer(@Lazy Terminal terminal) {
         this.terminal = terminal;
     }
 
     public void render(String line) {
+        if (line == null) {
+            return;
+        }
         var lines = line.split("\n");
         render(List.of(lines));
     }

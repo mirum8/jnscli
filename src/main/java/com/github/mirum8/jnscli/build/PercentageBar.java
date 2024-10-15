@@ -19,14 +19,38 @@ public class PercentageBar {
     }
 
     public static String of(int percentage, String statusMessage) {
+        return generateBar(percentage, statusMessage, false);
+    }
+
+    public static String error(int percentage, String statusMessage) {
+        return generateBar(percentage, statusMessage, true);
+    }
+
+    private static String generateBar(int percentage, String statusMessage, boolean isError) {
         percentage = Math.min(MAX_PROGRESS, Math.max(0, percentage));
         int doneSize = percentage / (MAX_PROGRESS / PROGRESS_BAR_SIZE);
         int remainsSize = PROGRESS_BAR_SIZE - doneSize;
 
-        String done = generateProgressSegment(doneSize, DONE_MARKER, percentage < MAX_PROGRESS ? TextColor.YELLOW : TextColor.GREEN);
+        TextColor doneColor = getDoneColor(percentage, isError);
+
+        String done = generateProgressSegment(doneSize, DONE_MARKER, doneColor);
         String remains = generateProgressSegment(remainsSize, REMAINS_MARKER, TextColor.CYAN);
 
-        return String.format("%s%s%s%s %3d%% %s", LEFT_DELIMITER, done, remains, RIGHT_DELIMITER, percentage, statusMessage);
+        return formatBar(done, remains, String.format("%3d%%", percentage), statusMessage);
+    }
+
+    private static TextColor getDoneColor(int percentage, boolean isError) {
+        if (isError) {
+            return TextColor.RED;
+        } else if (percentage < MAX_PROGRESS) {
+            return TextColor.YELLOW;
+        } else {
+            return TextColor.GREEN;
+        }
+    }
+
+    private static String formatBar(String done, String remains, String percentage, String statusMessage) {
+        return String.format("%s%s%s%s %s %s", LEFT_DELIMITER, done, remains, RIGHT_DELIMITER, percentage, statusMessage);
     }
 
     private static String generateProgressSegment(int size, String marker, TextColor color) {

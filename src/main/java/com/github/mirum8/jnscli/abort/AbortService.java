@@ -6,14 +6,11 @@ import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.Status;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
-import com.github.mirum8.jnscli.runner.OperationParameters;
 import com.github.mirum8.jnscli.runner.Spinner;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import org.springframework.stereotype.Service;
-
-import static com.github.mirum8.jnscli.shell.TextColor.GREEN;
-import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
 
 @Service
 public class AbortService {
@@ -57,14 +54,17 @@ public class AbortService {
     }
 
     private void abort(JobDescriptor job, int buildNumber) {
-        OperationParameters<BuildInfo> parameters = OperationParameters.<BuildInfo>builder()
-            .withProgressBar(new Spinner("Aborting job " + job.name()))
+        CommandParameters<BuildInfo> parameters = CommandParameters.<BuildInfo>builder()
+            .withProgressBar(Spinner.builder()
+                .runningMessage("Aborting job " + job.name())
+                .completeMessage("Job " + job.name() + " aborted")
+                .errorMessage("Failed to abort job " + job.name())
+                .build())
             .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
             .withSuccessWhen(workflowRun -> workflowRun.status() == Status.ABORTED)
-            .onSuccess(ignored -> colored("✓ ", GREEN) + "Job " + job.name() + " aborted")
             .withTimeout(60)
             .build();
 
-        commandRunner.start(() -> jenkinsAPI.abortJob(job.url(), buildNumber), parameters);
+        commandRunner.run(() -> jenkinsAPI.abortJob(job.url(), buildNumber), parameters);
     }
 }
