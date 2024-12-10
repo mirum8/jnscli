@@ -35,20 +35,12 @@ public class AiService {
     }
 
     public String analyzeLog(String log) {
-        Result<String> result = commandRunner.run(
+        Result<String> result = commandRunner.callWithSpinner("Analyzing log",
             () -> settingsService.readAiSettings()
                 .map(aiSettings -> {
                     AiClient aiClient = aiClientFactory.create(aiSettings);
                     return aiClient.generate(String.format(Templates.ANALYZE_LOG_TEMPLATE, log));
-                })
-                .orElse(null),
-            CommandParameters.<String>builder()
-                .withProgressBar(Spinner.builder("Analyzing log")
-                    .errorMessage("Log analysis failed")
-                    .build())
-                .withTimeout(120)
-                .build()
-        );
+                }).orElse(null));
 
         return switch (result) {
             case Result.Success<String> success -> success.value();
@@ -58,7 +50,7 @@ public class AiService {
     }
 
     public void test() {
-        Result<String> result = commandRunner.run(
+        Result<String> result = commandRunner.call(
             () -> settingsService.readAiSettings()
                 .map(aiClientFactory::create)
                 .map(aiClient -> aiClient.generate("Who are you?"))

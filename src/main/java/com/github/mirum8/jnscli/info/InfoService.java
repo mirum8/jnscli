@@ -3,6 +3,8 @@ package com.github.mirum8.jnscli.info;
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
 import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.runner.CommandRunner;
+import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.settings.SettingsService;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.TextColor;
@@ -26,13 +28,15 @@ public class InfoService {
     private final JobDescriptorProvider jobDescriptorProvider;
     private final String userName;
     private final PipelineAPI pipelineAPI;
+    private final CommandRunner commandRunner;
 
-    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI) {
+    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner) {
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.userName = settingsService.readSettings().username();
         this.pipelineAPI = pipelineAPI;
+        this.commandRunner = commandRunner;
     }
 
     public void info(String jobId,
@@ -44,9 +48,14 @@ public class InfoService {
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
         if (buildNumber != null) {
-            printFullBuildInfo(job.url(), buildNumber);
+            commandRunner.runWithSpinner("Fetching build info...", () -> printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
         } else {
-            printJobInfo(job, includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds);
+            Result<WorkflowJob> workflowJobResult = commandRunner.callWithSpinner("Fetching job info...", () -> {
+                WorkflowJob wj = jenkinsAPI.getWorkflowJob(job.url());
+                printGeneralJobInfo(job, wj);
+                return wj;
+            });
+            commandRunner.runWithSpinner("Fetching builds...", () -> printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, workflowJobResult.value()));
         }
     }
 
@@ -67,12 +76,6 @@ public class InfoService {
             statuses.add(Status.IN_PROGRESS);
         }
         return statuses;
-    }
-
-    private void printJobInfo(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds) {
-        WorkflowJob wj = jenkinsAPI.getWorkflowJob(job.url());
-        printGeneralJobInfo(job, wj);
-        printBuildInfo(statuses, limit, onlyMyBuilds, job, wj);
     }
 
     private void printWorkflowJobBuilds(JobDescriptor job, Set<Status> statuses, int limit, boolean onlyMyBuilds) {
@@ -123,17 +126,6 @@ public class InfoService {
         shellPrinter.println(sb.toString());
     }
 
-    private void printFullBuildInfo(String jobUrl, int buildNumber) {
-        WorkflowRun wr = pipelineAPI.getJobBuildDescription(jobUrl, buildNumber);
-        StringBuilder sb = new StringBuilder();
-        sb.append(getBuildSummary(wr, jenkinsAPI.getJobBuildInfo(jobUrl, wr.id())));
-        if (!wr.stages().isEmpty()) {
-            sb.append(colored("\n  Stages:", TextColor.CYAN)).append("\n");
-            wr.stages().forEach(stage -> sb.append(formatStageInfo(stage)));
-        }
-        shellPrinter.println(sb.toString());
-    }
-
     private String getBuildSummary(Build run, BuildInfo build) {
         var sb = new StringBuilder();
         sb.append(colored("Build " + build.displayName(), TextColor.YELLOW)).append("\n")
@@ -151,11 +143,6 @@ public class InfoService {
         }
         return sb.toString();
     }
-
-    private String formatStageInfo(WorkflowRun.Stage stage) {
-        return "   " + stage.name() + ": " + getColored(Status.valueOf(stage.status().toUpperCase())) + "\n";
-    }
-
 
     private String formatTimestamp(long timestampMillis) {
         return Instant.ofEpochMilli(timestampMillis)
@@ -175,7 +162,7 @@ public class InfoService {
     public void builds(String jobId, boolean includeSuccess, boolean includeFailed, boolean includeRunning, Integer limit, boolean onlyMyBuilds) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
-        printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null);
+        commandRunner.runWithSpinner("Fetching builds...", () -> printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
     }
 
     private void printBuildInfo(Set<Status> statuses, Integer limit, boolean onlyMyBuilds, JobDescriptor job, WorkflowJob wj) {

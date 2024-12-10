@@ -5,6 +5,7 @@ import com.github.mirum8.jnscli.common.JobDescriptorProvider;
 import com.github.mirum8.jnscli.context.JobType;
 import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.settings.SettingsService;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import org.springframework.stereotype.Component;
@@ -25,19 +26,22 @@ public class ErrorService {
     private final SettingsService settingsService;
     private final ShellPrinter shellPrinter;
     private final JobDescriptorProvider jobDescriptorProvider;
+    private final CommandRunner commandRunner;
 
     public ErrorService(AiService aiService,
                         JenkinsAPI jenkinsAPI,
                         PipelineAPI pipelineAPI,
                         SettingsService settingsService,
                         ShellPrinter shellPrinter,
-                        JobDescriptorProvider jobDescriptorProvider) {
+                        JobDescriptorProvider jobDescriptorProvider,
+                        CommandRunner commandRunner) {
         this.aiService = aiService;
         this.jenkinsAPI = jenkinsAPI;
         this.pipelineAPI = pipelineAPI;
         this.settingsService = settingsService;
         this.shellPrinter = shellPrinter;
         this.jobDescriptorProvider = jobDescriptorProvider;
+        this.commandRunner = commandRunner;
     }
 
     public void getError(String jobId, Integer buildNumber, boolean myBuild, boolean useAi) {
@@ -67,7 +71,8 @@ public class ErrorService {
             colored("Status: ", CYAN) + getColored(buildInfo.status());
         shellPrinter.println(buildParametersForPrinting);
 
-        String errors = getErrors(job, buildInfo.number());
+        String errors = commandRunner.callWithSpinner("Fetching errors", () -> getErrors(job, buildInfo.number())).value();
+
         if (errors.isEmpty()) {
             shellPrinter.println("No errors found.");
         }

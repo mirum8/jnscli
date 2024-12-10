@@ -18,7 +18,7 @@ public class CommandRunner {
         this.refreshableMultilineRenderer = refreshableMultilineRenderer;
     }
 
-    public <C, R> Result<R> run(Callable<R> operation, CommandParameters<C> commandParameters) {
+    public <C, R> Result<R> call(Callable<R> operation, CommandParameters<C> commandParameters) {
         try (var progressBarExecutor = Executors.newScheduledThreadPool(0, Thread.ofVirtual().factory())) {
             progressBarExecutor.scheduleAtFixedRate(() -> refreshableMultilineRenderer.render(commandParameters.progressBar().running()),
                 0, commandParameters.progressBar().refreshIntervalMillis(), TimeUnit.MILLISECONDS);
@@ -46,15 +46,23 @@ public class CommandRunner {
         }
     }
 
+    public <C, R> Result<R> callWithSpinner(String spinnerMessage, Callable<R> operation) {
+        return call(operation, CommandParameters.<C>builder().withProgressBar(Spinner.builder(spinnerMessage).build()).build());
+    }
+
+    public <C> void runWithSpinner(String spinnerMessage, Runnable operation) {
+        run(operation, CommandParameters.<C>builder().withProgressBar(Spinner.builder(spinnerMessage).build()).build());
+    }
+
     public <C> void run(Runnable operation, CommandParameters<C> commandParameters) {
-        run(() -> {
+        call(() -> {
             operation.run();
             return null;
         }, commandParameters);
     }
 
     public <C> Result<Void> showProgress(CommandParameters<C> commandParameters) {
-        return run(() -> null, commandParameters);
+        return call(() -> null, commandParameters);
     }
 
     private <C> Result<C> processUntilCompleteOrTimeout(CommandParameters<C> commandParameters) {
