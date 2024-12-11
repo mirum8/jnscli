@@ -48,14 +48,13 @@ public class InfoService {
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
         if (buildNumber != null) {
-            commandRunner.runWithSpinner("Fetching build info...", () -> printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
+            Result<String> result = commandRunner.callWithSpinner("Fetching build info...", () -> fetchBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
+            shellPrinter.println(result.value());
         } else {
-            Result<WorkflowJob> workflowJobResult = commandRunner.callWithSpinner("Fetching job info...", () -> {
-                WorkflowJob wj = jenkinsAPI.getWorkflowJob(job.url());
-                printGeneralJobInfo(job, wj);
-                return wj;
-            });
-            commandRunner.runWithSpinner("Fetching builds...", () -> printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, workflowJobResult.value()));
+            Result<WorkflowJob> workflowJobResult = commandRunner.callWithSpinner("Fetching job info...", () -> jenkinsAPI.getWorkflowJob(job.url()));
+            printGeneralJobInfo(job, workflowJobResult.value());
+            Result<String> result = commandRunner.callWithSpinner("Fetching builds...", () -> fetchBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, workflowJobResult.value()));
+            shellPrinter.println(result.value());
         }
     }
 
@@ -78,7 +77,7 @@ public class InfoService {
         return statuses;
     }
 
-    private void printWorkflowJobBuilds(JobDescriptor job, Set<Status> statuses, int limit, boolean onlyMyBuilds) {
+    private String fetchWorkflowJobBuilds(JobDescriptor job, Set<Status> statuses, int limit, boolean onlyMyBuilds) {
         StringBuilder sb = new StringBuilder();
         sb.append(colored("Last builds:\n", TextColor.CYAN));
 
@@ -103,7 +102,7 @@ public class InfoService {
             sb.append("  No builds found.\n");
         }
 
-        shellPrinter.println(sb.toString());
+        return sb.toString();
     }
 
     private void printGeneralJobInfo(JobDescriptor job, WorkflowJob wj) {
@@ -162,19 +161,20 @@ public class InfoService {
     public void builds(String jobId, boolean includeSuccess, boolean includeFailed, boolean includeRunning, Integer limit, boolean onlyMyBuilds) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
-        commandRunner.runWithSpinner("Fetching builds...", () -> printBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
+        Result<String> result = commandRunner.callWithSpinner("Fetching builds...", () -> fetchBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
+        shellPrinter.println(result.value());
     }
 
-    private void printBuildInfo(Set<Status> statuses, Integer limit, boolean onlyMyBuilds, JobDescriptor job, WorkflowJob wj) {
-        switch (job.type()) {
-            case WORKFLOW -> printWorkflowJobBuilds(job, statuses, limit, onlyMyBuilds);
-            case FREESTYLE -> printFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj
+    private String fetchBuildInfo(Set<Status> statuses, Integer limit, boolean onlyMyBuilds, JobDescriptor job, WorkflowJob wj) {
+        return switch (job.type()) {
+            case WORKFLOW -> fetchWorkflowJobBuilds(job, statuses, limit, onlyMyBuilds);
+            case FREESTYLE -> fetchFreestyleJobBuilds(job, statuses, limit, onlyMyBuilds, wj != null ? wj
                 : jenkinsAPI.getWorkflowJob(job.url()));
             default -> throw new IllegalArgumentException("Unsupported job type: " + job.type());
-        }
+        };
     }
 
-    private void printFreestyleJobBuilds(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds, WorkflowJob wj) {
+    private String fetchFreestyleJobBuilds(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds, WorkflowJob wj) {
         StringBuilder sb = new StringBuilder();
         sb.append(colored("Last builds:\n", TextColor.CYAN));
 
@@ -195,6 +195,6 @@ public class InfoService {
             sb.append("  No builds found.\n");
         }
 
-        shellPrinter.println(sb.toString());
+        return sb.toString();
     }
 }
