@@ -6,17 +6,15 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Component responsible for rendering output with the ability to refresh the displayed content.
- * Not thread-safe.
- */
 @Component
 public class RefreshableMultilineRenderer {
     private int linesToRemove;
     private final Terminal terminal;
+    private final TerminalCapabilities caps;
 
-    public RefreshableMultilineRenderer(@Lazy Terminal terminal) {
+    public RefreshableMultilineRenderer(@Lazy Terminal terminal, TerminalCapabilities caps) {
         this.terminal = terminal;
+        this.caps = caps;
     }
 
     public void render(String line) {
@@ -28,8 +26,10 @@ public class RefreshableMultilineRenderer {
     }
 
     public void render(List<String> lines) {
-        clean(linesToRemove);
-        linesToRemove = lines.size();
+        if (caps.supportsAnsi()) {
+            clean(linesToRemove);
+            linesToRemove = lines.size();
+        }
         for (String s : lines) {
             terminal.writer().println(s);
         }
@@ -40,18 +40,12 @@ public class RefreshableMultilineRenderer {
         if (lineAmount == 0) {
             return;
         }
-        // Move the cursor up lineAmount lines
         terminal.writer().print(String.format("\u001B[%dA", lineAmount));
         terminal.writer().flush();
-
-        // Delete lineAmount lines
         terminal.writer().print(String.format("\u001B[%dM", lineAmount));
         terminal.writer().flush();
     }
 
-    /**
-     * Resets the number of lines to remove to zero.
-     */
     public void reset() {
         linesToRemove = 0;
     }

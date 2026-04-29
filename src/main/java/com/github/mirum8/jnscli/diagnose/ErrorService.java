@@ -7,16 +7,14 @@ import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.Section;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
+import com.github.mirum8.jnscli.shell.Theme;
+import com.github.mirum8.jnscli.util.StatusFormatter;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 import java.util.List;
-
-import static com.github.mirum8.jnscli.shell.TextColor.CYAN;
-import static com.github.mirum8.jnscli.shell.TextColor.MAGENTA;
-import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
-import static com.github.mirum8.jnscli.util.Statuses.getColored;
 
 @Component
 public class ErrorService {
@@ -27,6 +25,9 @@ public class ErrorService {
     private final ShellPrinter shellPrinter;
     private final JobDescriptorProvider jobDescriptorProvider;
     private final CommandRunner commandRunner;
+    private final Section section;
+    private final Theme theme;
+    private final StatusFormatter statusFormatter;
 
     public ErrorService(AiService aiService,
                         JenkinsAPI jenkinsAPI,
@@ -34,7 +35,10 @@ public class ErrorService {
                         SettingsService settingsService,
                         ShellPrinter shellPrinter,
                         JobDescriptorProvider jobDescriptorProvider,
-                        CommandRunner commandRunner) {
+                        CommandRunner commandRunner,
+                        Section section,
+                        Theme theme,
+                        StatusFormatter statusFormatter) {
         this.aiService = aiService;
         this.jenkinsAPI = jenkinsAPI;
         this.pipelineAPI = pipelineAPI;
@@ -42,6 +46,9 @@ public class ErrorService {
         this.shellPrinter = shellPrinter;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.commandRunner = commandRunner;
+        this.section = section;
+        this.theme = theme;
+        this.statusFormatter = statusFormatter;
     }
 
     public void getError(String jobId, Integer buildNumber, boolean myBuild, boolean useAi) {
@@ -66,17 +73,19 @@ public class ErrorService {
             return;
         }
 
-        String buildParametersForPrinting = colored("Build Number: ", CYAN) + buildInfo.number() + "\n" +
-            colored("Started By: ", CYAN) + buildInfo.startedBy().orElse("Unknown") + "\n" +
-            colored("Status: ", CYAN) + getColored(buildInfo.status());
-        shellPrinter.println(buildParametersForPrinting);
+        String header = section.builder()
+            .field("Build Number", String.valueOf(buildInfo.number()))
+            .field("Started By", buildInfo.startedBy().orElse("Unknown"))
+            .field("Status", statusFormatter.colored(buildInfo.status()))
+            .build();
+        shellPrinter.println(header);
 
         String errors = commandRunner.callWithSpinner("Fetching errors", () -> getErrors(job, buildInfo.number())).value();
 
         if (errors.isEmpty()) {
             shellPrinter.println("No errors found.");
         }
-        String errorsText = useAi ? colored("AI analysis: ", MAGENTA) + aiService.analyzeLog(errors) : errors;
+        String errorsText = useAi ? theme.accent("AI analysis: ") + aiService.analyzeLog(errors) : errors;
         shellPrinter.println(errorsText);
     }
 

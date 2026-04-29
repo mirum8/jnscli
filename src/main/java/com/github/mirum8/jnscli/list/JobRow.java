@@ -2,7 +2,7 @@ package com.github.mirum8.jnscli.list;
 
 public record JobRow(
     int id,
-    Symbol color,
+    String status,
     String name
 ) {
     static Builder builder() {
@@ -11,18 +11,19 @@ public record JobRow(
 
     static final class Builder {
         private int id;
-        private Symbol color = new Symbol.Single("N");
+        private String status = "";
         private String name;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         public Builder id(int id) {
             this.id = id;
             return this;
         }
 
-        public Builder color(Symbol color) {
-            this.color = color;
+        public Builder status(String status) {
+            this.status = status;
             return this;
         }
 
@@ -32,7 +33,7 @@ public record JobRow(
         }
 
         public JobRow build() {
-            return new JobRow(id, color, name);
+            return new JobRow(id, status, name);
         }
     }
 }

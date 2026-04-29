@@ -7,6 +7,8 @@ import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.Job;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
+import com.github.mirum8.jnscli.shell.Symbols;
+import com.github.mirum8.jnscli.shell.Theme;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -19,17 +21,23 @@ public class ListService {
     private final JobListTableFormatter jobListTableFormatter;
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
     private final JobDescriptorProvider jobDescriptorProvider;
+    private final Theme theme;
+    private final Symbols symbols;
 
     public ListService(JenkinsAPI jenkinsAPI,
                        JobsContext jobsContext,
                        JobListTableFormatter jobListTableFormatter,
                        RefreshableMultilineRenderer refreshableMultilineRenderer,
-                       JobDescriptorProvider jobDescriptorProvider) {
+                       JobDescriptorProvider jobDescriptorProvider,
+                       Theme theme,
+                       Symbols symbols) {
         this.jenkinsAPI = jenkinsAPI;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.jobsContext = jobsContext;
         this.jobListTableFormatter = jobListTableFormatter;
         this.refreshableMultilineRenderer = refreshableMultilineRenderer;
+        this.theme = theme;
+        this.symbols = symbols;
     }
 
     public void listJobs() {
@@ -55,8 +63,8 @@ public class ListService {
         List<JobRow> jobRows = jobs.stream()
             .map(job -> JobRow.builder()
                 .id(jobsContext.findJobByName(job.name()).map(JobDescriptor::id).orElse(0))
-                .name(JobType.fromName(job.aClass()) == JobType.FOLDER ? "\33[1m" + job.name() + "\33[0m" : job.name())
-                .color(getColor(job.color(), JobType.fromName(job.aClass())))
+                .name(JobType.fromName(job.aClass()) == JobType.FOLDER ? theme.bold(job.name()) : job.name())
+                .status(getStatus(job.color(), JobType.fromName(job.aClass())))
                 .build())
             .sorted(Comparator.comparingInt(JobRow::id))
             .toList();
@@ -65,34 +73,29 @@ public class ListService {
         refreshableMultilineRenderer.render(tableRows);
     }
 
-    private Symbol getColor(String color, JobType jobType) {
+    private String getStatus(String color, JobType jobType) {
         if (color == null) {
-            return getColorFromJobType(jobType);
+            return getStatusFromJobType(jobType);
         }
         boolean isRunning = color.endsWith("_anime");
-        if (color.contains("_")) {
-            color = color.substring(0, color.indexOf('_'));
-        }
-        Symbol status = switch (color) {
-            case "blue" -> new Symbol.Single("✔");
-            case "red" -> new Symbol.Single("✘");
-            case "yellow" -> new Symbol.Single("!");
-            case "notbuilt" -> new Symbol.Single("N");
-            case "disabled" -> new Symbol.Single("D");
-            case "aborted" -> new Symbol.Single("A");
-            case "grey" -> new Symbol.Single("?");
-            default -> new Symbol.Single(" ");
+        String base = color.contains("_") ? color.substring(0, color.indexOf('_')) : color;
+        String glyph = switch (base) {
+            case "blue" -> theme.success(symbols.ok());
+            case "red" -> theme.failure(symbols.fail());
+            case "yellow" -> theme.warning(symbols.warn());
+            case "notbuilt" -> theme.warning(symbols.notbuilt());
+            case "disabled" -> theme.warning(symbols.disabled());
+            case "aborted" -> theme.warning(symbols.aborted());
+            case "grey" -> theme.warning(symbols.unknown());
+            default -> " ";
         };
-        if (isRunning) {
-            status = new Symbol.Double(status.value() + "*");
-        }
-        return status;
+        return isRunning ? glyph + symbols.running() : glyph;
     }
 
-    private Symbol getColorFromJobType(JobType jobType) {
+    private String getStatusFromJobType(JobType jobType) {
         return switch (jobType) {
-            case FOLDER -> new Symbol.Double("📁");
-            default -> new Symbol.Single("N");
+            case FOLDER -> symbols.folder();
+            default -> theme.warning(symbols.notbuilt());
         };
     }
 }

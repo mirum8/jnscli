@@ -13,9 +13,11 @@ import java.util.concurrent.TimeUnit;
 public class CommandRunner {
 
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
+    private final SpinnerFactory spinnerFactory;
 
-    public CommandRunner(RefreshableMultilineRenderer refreshableMultilineRenderer) {
+    public CommandRunner(RefreshableMultilineRenderer refreshableMultilineRenderer, SpinnerFactory spinnerFactory) {
         this.refreshableMultilineRenderer = refreshableMultilineRenderer;
+        this.spinnerFactory = spinnerFactory;
     }
 
     public <C, R> Result<R> call(Callable<R> operation, CommandParameters<C> commandParameters) {
@@ -26,12 +28,12 @@ public class CommandRunner {
             Result<C> chekingResult = processUntilCompleteOrTimeout(commandParameters);
             progressBarExecutor.shutdown();
             return switch (chekingResult) {
-                case Result.Success<?> success -> {
-                    processSuccess(commandParameters, (C) success.value());
+                case Result.Success<?>(Object value) -> {
+                    processSuccess(commandParameters, (C) value);
                     yield new Result.Success<>(result);
                 }
-                case Result.Failure<?> failure when failure.value() != null -> {
-                    processFailure(commandParameters, (C) failure.value());
+                case Result.Failure<?>(Object value) when value != null -> {
+                    processFailure(commandParameters, (C) value);
                     yield new Result.Failure<>(result);
                 }
                 case Result.Failure<?> ignored -> {
@@ -47,11 +49,11 @@ public class CommandRunner {
     }
 
     public <C, R> Result<R> callWithSpinner(String spinnerMessage, Callable<R> operation) {
-        return call(operation, CommandParameters.<C>builder().withProgressBar(Spinner.builder(spinnerMessage).build()).build());
+        return call(operation, CommandParameters.<C>builder().withProgressBar(spinnerFactory.builder(spinnerMessage).build()).build());
     }
 
     public <C> void runWithSpinner(String spinnerMessage, Runnable operation) {
-        run(operation, CommandParameters.<C>builder().withProgressBar(Spinner.builder(spinnerMessage).build()).build());
+        run(operation, CommandParameters.<C>builder().withProgressBar(spinnerFactory.builder(spinnerMessage).build()).build());
     }
 
     public <C> void run(Runnable operation, CommandParameters<C> commandParameters) {

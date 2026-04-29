@@ -2,6 +2,8 @@ package com.github.mirum8.jnscli.build.parameters;
 
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob.Property.ParameterDefinition;
+import com.github.mirum8.jnscli.shell.ShellPrinter;
+import com.github.mirum8.jnscli.shell.Theme;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -12,10 +14,16 @@ import java.util.stream.Collectors;
 
 @Component
 public class ParameterService {
-    private final ParameterPrompterRegistry prompterRegistry;
+    private static final String FILE_PARAMETER_TYPE = "FileParameterDefinition";
 
-    public ParameterService(ParameterPrompterRegistry prompterRegistry) {
+    private final ParameterPrompterRegistry prompterRegistry;
+    private final ShellPrinter shellPrinter;
+    private final Theme theme;
+
+    public ParameterService(ParameterPrompterRegistry prompterRegistry, ShellPrinter shellPrinter, Theme theme) {
         this.prompterRegistry = prompterRegistry;
+        this.shellPrinter = shellPrinter;
+        this.theme = theme;
     }
 
     public Map<String, String> prompt(WorkflowJob job, List<String> parameters, boolean useDefaults) {
@@ -33,10 +41,19 @@ public class ParameterService {
 
         Map<String, String> result = new LinkedHashMap<>();
 
+        boolean willPrompt = !useDefaults && parameterDefinitions.stream()
+            .anyMatch(p -> !parametersFromInput.containsKey(p.name()));
+        if (willPrompt) {
+            shellPrinter.println(theme.header("Parameters"));
+        }
+
         parameterDefinitions.forEach(param -> {
             if (parametersFromInput.containsKey(param.name())) {
                 result.put(param.name(), parametersFromInput.get(param.name()));
             } else if (useDefaults) {
+                if (FILE_PARAMETER_TYPE.equals(param.type())) {
+                    throw new IllegalArgumentException("--defaults cannot be used with file parameter '" + param.name() + "'; specify -p " + param.name() + "=<path> explicitly");
+                }
                 var dpv = param.defaultParameterValue();
                 if (dpv != null && dpv.value() != null) {
                     result.put(param.name(), param.defaultValue());

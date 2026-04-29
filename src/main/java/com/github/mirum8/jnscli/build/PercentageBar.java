@@ -1,61 +1,68 @@
 package com.github.mirum8.jnscli.build;
 
-import com.github.mirum8.jnscli.shell.TextColor;
+import com.github.mirum8.jnscli.shell.TerminalCapabilities;
+import com.github.mirum8.jnscli.shell.Theme;
+import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-
-import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
-
+@Component
 public class PercentageBar {
 
     private static final int MAX_PROGRESS = 100;
-    private static final int PROGRESS_BAR_SIZE = 10;
-    private static final String DONE_MARKER = "█";
-    private static final String REMAINS_MARKER = "░";
-    private static final String LEFT_DELIMITER = "[";
-    private static final String RIGHT_DELIMITER = "]";
+    private static final int MIN_BAR_SIZE = 10;
+    private static final int MAX_BAR_SIZE = 40;
+    private static final int RESERVED_FOR_LABELS = 30;
+    private static final String UNICODE_DONE = "█";
+    private static final String UNICODE_REMAINS = "░";
+    private static final String ASCII_DONE = "=";
+    private static final String ASCII_REMAINS = " ";
 
-    private PercentageBar() {
+    private final TerminalCapabilities caps;
+    private final Theme theme;
+
+    public PercentageBar(TerminalCapabilities caps, Theme theme) {
+        this.caps = caps;
+        this.theme = theme;
     }
 
-    public static String of(int percentage, String statusMessage) {
+    public String of(int percentage, String statusMessage) {
         return generateBar(percentage, statusMessage, false);
     }
 
-    public static String error(int percentage, String statusMessage) {
+    public String error(int percentage, String statusMessage) {
         return generateBar(percentage, statusMessage, true);
     }
 
-    private static String generateBar(int percentage, String statusMessage, boolean isError) {
-        percentage = Math.min(MAX_PROGRESS, Math.max(0, percentage));
-        int doneSize = percentage / (MAX_PROGRESS / PROGRESS_BAR_SIZE);
-        int remainsSize = PROGRESS_BAR_SIZE - doneSize;
+    private String generateBar(int percentage, String statusMessage, boolean isError) {
+        int clamped = Math.clamp(percentage, 0, MAX_PROGRESS);
+        int barSize = barSize();
+        int doneSize = clamped * barSize / MAX_PROGRESS;
+        int remainsSize = barSize - doneSize;
 
-        TextColor doneColor = getDoneColor(percentage, isError);
+        String doneMarker = caps.supportsUnicode() ? UNICODE_DONE : ASCII_DONE;
+        String remainsMarker = caps.supportsUnicode() ? UNICODE_REMAINS : ASCII_REMAINS;
 
-        String done = generateProgressSegment(doneSize, DONE_MARKER, doneColor);
-        String remains = generateProgressSegment(remainsSize, REMAINS_MARKER, TextColor.CYAN);
+        String done = colorDone(repeat(doneMarker, doneSize), clamped, isError);
+        String remains = caps.supportsUnicode() ? theme.dim(repeat(remainsMarker, remainsSize)) : repeat(remainsMarker, remainsSize);
 
-        return formatBar(done, remains, String.format("%3d%%", percentage), statusMessage);
+        return String.format("[%s%s] %3d%% %s", done, remains, clamped, statusMessage);
     }
 
-    private static TextColor getDoneColor(int percentage, boolean isError) {
+    private String colorDone(String done, int percentage, boolean isError) {
         if (isError) {
-            return TextColor.RED;
-        } else if (percentage < MAX_PROGRESS) {
-            return TextColor.YELLOW;
-        } else {
-            return TextColor.GREEN;
+            return theme.failure(done);
         }
+        if (percentage < MAX_PROGRESS) {
+            return theme.warning(done);
+        }
+        return theme.success(done);
     }
 
-    private static String formatBar(String done, String remains, String percentage, String statusMessage) {
-        return String.format("%s%s%s%s %s %s", LEFT_DELIMITER, done, remains, RIGHT_DELIMITER, percentage, statusMessage);
+    private int barSize() {
+        int budget = caps.width() - RESERVED_FOR_LABELS;
+        return Math.clamp(budget, MIN_BAR_SIZE, MAX_BAR_SIZE);
     }
 
-    private static String generateProgressSegment(int size, String marker, TextColor color) {
-        char[] segmentChars = new char[size];
-        Arrays.fill(segmentChars, marker.charAt(0));
-        return colored(new String(segmentChars), color);
+    private static String repeat(String s, int n) {
+        return n > 0 ? s.repeat(n) : "";
     }
 }

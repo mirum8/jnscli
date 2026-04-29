@@ -6,8 +6,9 @@ import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.Section;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
-import com.github.mirum8.jnscli.shell.TextColor;
+import com.github.mirum8.jnscli.util.StatusFormatter;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -15,9 +16,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
-import static com.github.mirum8.jnscli.util.Statuses.getColored;
 
 @Component
 public class InfoService {
@@ -29,14 +27,18 @@ public class InfoService {
     private final String userName;
     private final PipelineAPI pipelineAPI;
     private final CommandRunner commandRunner;
+    private final Section section;
+    private final StatusFormatter statusFormatter;
 
-    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner) {
+    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner, Section section, StatusFormatter statusFormatter) {
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.userName = settingsService.readSettings().username();
         this.pipelineAPI = pipelineAPI;
         this.commandRunner = commandRunner;
+        this.section = section;
+        this.statusFormatter = statusFormatter;
     }
 
     public void info(String jobId,
@@ -78,9 +80,6 @@ public class InfoService {
     }
 
     private String fetchWorkflowJobBuilds(JobDescriptor job, Set<Status> statuses, int limit, boolean onlyMyBuilds) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(colored("Last builds:\n", TextColor.CYAN));
-
         record RunWithBuildInfo(Run run, BuildInfo buildInfo) {
         }
 
@@ -89,58 +88,54 @@ public class InfoService {
             .filter(build -> statuses.contains(build.status()))
             .map(run -> new RunWithBuildInfo(run, jenkinsAPI.getJobBuildInfo(job.url(), run.id())))
             .sorted(Comparator.<RunWithBuildInfo>comparingInt(r -> r.buildInfo.number()).reversed())
-            .filter(r -> !onlyMyBuilds || r.buildInfo().startedBy().isPresent() && r.buildInfo().startedBy().get().equals(userName))
+            .filter(r -> !onlyMyBuilds || r.buildInfo().startedBy().map(userName::equals).orElse(false))
             .limit(limit)
             .toList();
 
-        if (!filteredBuilds.isEmpty()) {
-            for (RunWithBuildInfo filteredBuild : filteredBuilds) {
-                sb.append("----------------------------------------\n");
-                sb.append(getBuildSummary(filteredBuild.run(), filteredBuild.buildInfo()));
-            }
+        Section.Builder b = section.builder().header("Last builds");
+        if (filteredBuilds.isEmpty()) {
+            b.line("  No builds found.");
         } else {
-            sb.append("  No builds found.\n");
+            for (RunWithBuildInfo filteredBuild : filteredBuilds) {
+                b.divider();
+                appendBuildSummary(b, filteredBuild.run(), filteredBuild.buildInfo());
+            }
         }
-
-        return sb.toString();
+        return b.build();
     }
 
     private void printGeneralJobInfo(JobDescriptor job, WorkflowJob wj) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(colored("Job Information:\n", TextColor.YELLOW));
-        sb.append(colored("  Name: ", TextColor.CYAN)).append(wj.name()).append("\n");
-        sb.append(colored("  URL:  ", TextColor.CYAN)).append(wj.url()).append("\n");
+        Section.Builder b = section.builder()
+            .header("Job Information")
+            .field("Name", wj.name())
+            .field("URL", wj.url());
         if (job.alias() != null) {
-            sb.append(colored("  Alias: ", TextColor.CYAN)).append(job.alias()).append("\n");
+            b.field("Alias", job.alias());
         }
         if (wj.description() != null && !wj.description().trim().isEmpty()) {
-            sb.append(colored("  Description: ", TextColor.CYAN)).append(wj.description()).append("\n");
+            b.field("Description", wj.description());
         }
         if (wj.property() != null && !wj.property().isEmpty()) {
-            sb.append(colored("  Parameters:\n", TextColor.CYAN));
+            b.line("  Parameters:");
             wj.property().stream().map(WorkflowJob.Property::parameterDefinitions).filter(Objects::nonNull)
                 .flatMap(List::stream)
-                .forEach(parameter -> sb.append("    ").append(colored(parameter.name() + ": ", TextColor.CYAN)).append(parameter.defaultValue()).append("\n"));
+                .forEach(parameter -> b.line("    " + parameter.name() + ": " + parameter.defaultValue()));
         }
-        shellPrinter.println(sb.toString());
+        shellPrinter.println(b.build());
     }
 
-    private String getBuildSummary(Build run, BuildInfo build) {
-        var sb = new StringBuilder();
-        sb.append(colored("Build " + build.displayName(), TextColor.YELLOW)).append("\n")
-            .append(colored("  Status:    ", TextColor.CYAN)).append(getColored(run.status())).append("\n")
-            .append(colored("  StartedAt: ", TextColor.CYAN)).append(formatTimestamp(build.timestamp())).append("\n")
-            .append(colored("  Duration:  ", TextColor.CYAN)).append(formatDuration(build.duration())).append("\n");
-        build.startedBy().ifPresent(startedBy ->
-            sb.append(colored("  StartedBy: ", TextColor.CYAN)).append(startedBy).append("\n"));
+    private void appendBuildSummary(Section.Builder b, Build run, BuildInfo build) {
+        b.header("Build " + build.displayName())
+            .field("Status", statusFormatter.colored(run.status()))
+            .field("StartedAt", formatTimestamp(build.timestamp()))
+            .field("Duration", formatDuration(build.duration()));
+        build.startedBy().ifPresent(startedBy -> b.field("StartedBy", startedBy));
         if (!build.parameters().isEmpty()) {
-            build.parameters().forEach(parameter ->
-                sb.append(colored("  " + parameter.name() + ": ", TextColor.CYAN)).append(parameter.value()).append("\n"));
+            build.parameters().forEach(parameter -> b.field(parameter.name(), parameter.value()));
         }
         if (build.description() != null) {
-            sb.append(colored("  Description: ", TextColor.CYAN)).append(build.description()).append("\n");
+            b.field("Description", build.description());
         }
-        return sb.toString();
     }
 
     private String formatTimestamp(long timestampMillis) {
@@ -175,26 +170,23 @@ public class InfoService {
     }
 
     private String fetchFreestyleJobBuilds(JobDescriptor job, Set<Status> statuses, Integer limit, boolean onlyMyBuilds, WorkflowJob wj) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(colored("Last builds:\n", TextColor.CYAN));
-
         List<BuildInfo> filteredBuilds = wj.builds().stream()
             .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
             .map(build -> jenkinsAPI.getJobBuildInfo(job.url(), build.number()))
             .filter(buildInfo -> statuses.contains(buildInfo.result()))
-            .filter(build -> !onlyMyBuilds || build.startedBy().isPresent() && build.startedBy().get().equals(userName))
+            .filter(build -> !onlyMyBuilds || build.startedBy().map(userName::equals).orElse(false))
             .limit(limit)
             .toList();
 
-        if (!filteredBuilds.isEmpty()) {
-            for (BuildInfo filteredBuild : filteredBuilds) {
-                sb.append("----------------------------------------\n");
-                sb.append(getBuildSummary(filteredBuild, jenkinsAPI.getJobBuildInfo(job.url(), filteredBuild.number())));
-            }
+        Section.Builder b = section.builder().header("Last builds");
+        if (filteredBuilds.isEmpty()) {
+            b.line("  No builds found.");
         } else {
-            sb.append("  No builds found.\n");
+            for (BuildInfo filteredBuild : filteredBuilds) {
+                b.divider();
+                appendBuildSummary(b, filteredBuild, filteredBuild);
+            }
         }
-
-        return sb.toString();
+        return b.build();
     }
 }

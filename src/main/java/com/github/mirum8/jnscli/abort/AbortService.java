@@ -8,7 +8,7 @@ import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
-import com.github.mirum8.jnscli.runner.Spinner;
+import com.github.mirum8.jnscli.runner.SpinnerFactory;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import org.springframework.stereotype.Service;
 
@@ -18,12 +18,14 @@ public class AbortService {
     private final ShellPrinter shellPrinter;
     private final CommandRunner commandRunner;
     private final JobDescriptorProvider jobDescriptorProvider;
+    private final SpinnerFactory spinnerFactory;
 
-    public AbortService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, CommandRunner commandRunner, JobDescriptorProvider jobDescriptorProvider) {
+    public AbortService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, CommandRunner commandRunner, JobDescriptorProvider jobDescriptorProvider, SpinnerFactory spinnerFactory) {
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
         this.commandRunner = commandRunner;
         this.jobDescriptorProvider = jobDescriptorProvider;
+        this.spinnerFactory = spinnerFactory;
     }
 
     public void abort(String jobId) {
@@ -55,7 +57,7 @@ public class AbortService {
 
     private void abort(JobDescriptor job, int buildNumber) {
         CommandParameters<BuildInfo> parameters = CommandParameters.<BuildInfo>builder()
-            .withProgressBar(Spinner.builder()
+            .withProgressBar(spinnerFactory.builder()
                 .runningMessage("Aborting job " + job.name())
                 .completeMessage("Job " + job.name() + " aborted")
                 .errorMessage("Failed to abort job " + job.name())

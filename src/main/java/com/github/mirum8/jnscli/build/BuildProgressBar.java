@@ -14,12 +14,14 @@ public class BuildProgressBar implements ProgressBar {
     private static final long DEFAULT_STAGE_DURATION = 60000L;
 
     private final PipelineAPI pipelineAPI;
+    private final PercentageBar percentageBar;
     private final String jobUrl;
     private final int buildNumber;
     private List<WorkflowRun.Stage> previousBuildStages;
 
-    public BuildProgressBar(PipelineAPI pipelineAPI, String jobUrl, int buildNumber) {
+    public BuildProgressBar(PipelineAPI pipelineAPI, PercentageBar percentageBar, String jobUrl, int buildNumber) {
         this.pipelineAPI = pipelineAPI;
+        this.percentageBar = percentageBar;
         this.jobUrl = jobUrl;
         this.buildNumber = buildNumber;
     }
@@ -46,13 +48,13 @@ public class BuildProgressBar implements ProgressBar {
 
     private String getProgressBar(WorkflowRun.Stage stage, Long previousDuration) {
         if (stage.status().equals("SUCCESS")) {
-            return PercentageBar.of(100, stage.name());
+            return percentageBar.of(100, stage.name());
         } else {
             long percentage = (new Date().getTime() - stage.startTimeMillis()) * 100 / previousDuration;
             if (percentage > 100) {
                 percentage = 99;
             }
-            return PercentageBar.of((int) percentage, stage.name());
+            return percentageBar.of((int) percentage, stage.name());
         }
     }
 
@@ -64,7 +66,7 @@ public class BuildProgressBar implements ProgressBar {
     }
 
     private String getZeroProgressBar(WorkflowRun.Stage stage) {
-        return PercentageBar.of(0, stage.name());
+        return percentageBar.of(0, stage.name());
     }
 
     private List<String> showProgressForStages(String jobName, int buildNumber) {
@@ -78,7 +80,6 @@ public class BuildProgressBar implements ProgressBar {
             if (previousBuildStages.size() <= i) {
                 reset = true;
             }
-            // if the stage name is different, reset the progress bars
             if (!reset && !previousBuildStages.get(i).name().equals(workflowRun.stages().get(i).name())) {
                 updatedProgressBars = updatedProgressBars.subList(0, i + 1);
                 reset = true;
@@ -96,7 +97,7 @@ public class BuildProgressBar implements ProgressBar {
     @Override
     public List<String> completed() {
         return pipelineAPI.getJobBuildDescription(jobUrl, buildNumber).stages().stream()
-            .map(stage -> PercentageBar.of(100, stage.name()))
+            .map(stage -> percentageBar.of(100, stage.name()))
             .toList();
     }
 
@@ -108,9 +109,7 @@ public class BuildProgressBar implements ProgressBar {
     }
 
     private String getProgressBarOnError(WorkflowRun.Stage stage) {
-        return Objects.equals(stage.status(), "SUCCESS") ? PercentageBar.of(100, stage.name()) : PercentageBar.error(99, stage.name());
+        return Objects.equals(stage.status(), "SUCCESS") ? percentageBar.of(100, stage.name()) : percentageBar.error(99, stage.name());
     }
 
 }
-
-

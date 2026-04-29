@@ -12,10 +12,11 @@ import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
-import com.github.mirum8.jnscli.runner.Spinner;
+import com.github.mirum8.jnscli.runner.SpinnerFactory;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
-import com.github.mirum8.jnscli.shell.TextColor;
+import com.github.mirum8.jnscli.shell.Symbols;
+import com.github.mirum8.jnscli.shell.Theme;
 import com.github.mirum8.jnscli.util.Threads;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.github.mirum8.jnscli.jenkins.Status.*;
-import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
 import static java.util.stream.Collectors.toMap;
 
 @Service
@@ -47,6 +47,10 @@ class BuildService {
     private final AiService aiService;
     private final PipelineAPI pipelineAPI;
     private final ErrorService errorService;
+    private final SpinnerFactory spinnerFactory;
+    private final Theme theme;
+    private final Symbols symbols;
+    private final PercentageBar percentageBar;
 
     BuildService(ShellPrinter shellPrinter,
                  JenkinsAPI jenkinsAPI,
@@ -57,7 +61,11 @@ class BuildService {
                  JobDescriptorProvider jobDescriptorProvider,
                  AiService aiService,
                  PipelineAPI pipelineAPI,
-                 ErrorService errorService) {
+                 ErrorService errorService,
+                 SpinnerFactory spinnerFactory,
+                 Theme theme,
+                 Symbols symbols,
+                 PercentageBar percentageBar) {
         this.shellPrinter = shellPrinter;
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrompter = shellPrompter;
@@ -68,6 +76,10 @@ class BuildService {
         this.aiService = aiService;
         this.pipelineAPI = pipelineAPI;
         this.errorService = errorService;
+        this.spinnerFactory = spinnerFactory;
+        this.theme = theme;
+        this.symbols = symbols;
+        this.percentageBar = percentageBar;
     }
 
     void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi, boolean useDefaults) {
@@ -107,19 +119,19 @@ class BuildService {
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
                 commandRunner.showProgress(CommandParameters.<BuildInfo>builder()
-                    .withProgressBar(new BuildProgressBar(pipelineAPI, job.url(), buildNumber))
+                    .withProgressBar(new BuildProgressBar(pipelineAPI, percentageBar, job.url(), buildNumber))
                     .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
                     .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
                     .withFailureWhen(buildInfo -> buildInfo.status() == FAILED || buildInfo.status() == FAILURE || buildInfo.status() == ABORTED)
-                    .onSuccess(ignored -> FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
+                    .onSuccess(ignored -> FINISHED_PREFIX + theme.success(SUCCESS.name()))
                     .onFailure(ignored -> getErrorMessage(job, buildNumber, useAi))
                     .build());
             } else {
                 commandRunner.showProgress(CommandParameters.<WorkflowJob>builder()
-                    .withProgressBar(Spinner.builder()
+                    .withProgressBar(spinnerFactory.builder()
                         .runningMessage("Job " + job.name() + " is running")
-                        .completeMessage(FINISHED_PREFIX + colored(SUCCESS.name(), TextColor.GREEN))
-                        .errorMessage(FINISHED_PREFIX + colored(FAILED.name(), TextColor.RED) + "/nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
+                        .completeMessage(FINISHED_PREFIX + theme.success(SUCCESS.name()))
+                        .errorMessage(FINISHED_PREFIX + theme.failure(FAILED.name()) + "\nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
                         .build()
                     )
                     .withCompletionChecker(() -> jenkinsAPI.getWorkflowJob(job.url()))
@@ -152,9 +164,9 @@ class BuildService {
         }
 
         shellPrinter.println("Job " + job.name() + " is already running. Builds:");
-        runningBuilds.forEach(build -> shellPrinter.println(colored("  #" + build.run().id(), TextColor.YELLOW) + "\n" +
-                colored("  Started by: ", TextColor.CYAN) + build.buildInfo().startedBy().orElse("Unknown") + "\n" +
-                colored("  Current stage: ", TextColor.CYAN) + getCurrentStage(build.run()) + "\n" +
+        runningBuilds.forEach(build -> shellPrinter.println(theme.warning("  #" + build.run().id()) + "\n" +
+                theme.label("  Started by: ") + build.buildInfo().startedBy().orElse("Unknown") + "\n" +
+                theme.label("  Current stage: ") + getCurrentStage(build.run()) + "\n" +
                 getParameters(build.buildInfo())
             )
         );
@@ -189,7 +201,7 @@ class BuildService {
 
     private String getParameters(BuildInfo build) {
         return build.parameters().stream()
-            .map(parameter -> "  " + colored(parameter.name(), TextColor.CYAN) + ": " + parameter.value())
+            .map(parameter -> "  " + theme.label(parameter.name()) + ": " + parameter.value())
             .collect(Collectors.joining("\n"));
     }
 
@@ -206,7 +218,7 @@ class BuildService {
 
     private String getErrorMessage(JobDescriptor job, int buildNumber, boolean useAi) {
         String errors = errorService.getErrors(job, buildNumber);
-        return useAi ? colored("AI analysis: ", TextColor.MAGENTA) + aiService.analyzeLog(errors) : "Errors:\n" + errors;
+        return useAi ? theme.accent("AI analysis: ") + aiService.analyzeLog(errors) : "Errors:\n" + errors;
     }
 
     private Result<Void> startJob(JobDescriptor job, Map<String, String> parameters) {
@@ -231,13 +243,13 @@ class BuildService {
 
     private Result<Void> showStartingJobStatus(JobDescriptor job, QueueItemLocation queueItemLocation) {
         return commandRunner.showProgress(CommandParameters.<QueueItem>builder()
-            .withProgressBar(Spinner.builder().runningMessage("Starting job " + job.name())
+            .withProgressBar(spinnerFactory.builder().runningMessage("Starting job " + job.name())
                 .completeMessage("Job " + job.name() + " started")
                 .build())
             .withCompletionChecker(() -> jenkinsAPI.getQueueItem(queueItemLocation.url()))
             .withSuccessWhen(queueItem -> queueItem != null && QueueItemType.LEFT_ITEM == queueItem.type())
             .withTimeout(90)
-            .onTimeoutError(() -> colored("✗ ", TextColor.RED) + "Job " + job.name() + " failed to start.")
+            .onTimeoutError(() -> theme.failure(symbols.fail()) + " Job " + job.name() + " failed to start.")
             .build());
     }
 

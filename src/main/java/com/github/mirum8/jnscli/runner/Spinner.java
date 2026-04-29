@@ -1,13 +1,14 @@
 package com.github.mirum8.jnscli.runner;
 
-import com.github.mirum8.jnscli.shell.TextColor;
+import com.github.mirum8.jnscli.shell.Symbols;
+import com.github.mirum8.jnscli.shell.Theme;
 
 import java.util.List;
 
-import static com.github.mirum8.jnscli.shell.TextFormatter.colored;
-
 public class Spinner implements ProgressBar {
-    private final char[] spinnerChars = new char[]{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'};
+    private final char[] spinnerChars;
+    private final Theme theme;
+    private final Symbols symbols;
 
     private final String runningMessage;
     private final String errorMessage;
@@ -15,7 +16,10 @@ public class Spinner implements ProgressBar {
 
     private int spinCounter;
 
-    private Spinner(String runningMessage, String errorMessage, String completeMessage) {
+    Spinner(Theme theme, Symbols symbols, String runningMessage, String errorMessage, String completeMessage) {
+        this.theme = theme;
+        this.symbols = symbols;
+        this.spinnerChars = symbols.spinnerFrames();
         this.runningMessage = runningMessage;
         this.errorMessage = errorMessage;
         this.completeMessage = completeMessage;
@@ -35,26 +39,29 @@ public class Spinner implements ProgressBar {
 
     @Override
     public List<String> completed() {
-        return completeMessage != null ? List.of(colored("✓ ", TextColor.GREEN) + completeMessage) : List.of();
+        return completeMessage != null
+            ? List.of(theme.success(symbols.ok()) + " " + completeMessage)
+            : List.of();
     }
 
     @Override
     public List<String> failed() {
-        return errorMessage != null ? List.of(colored("✗ ", TextColor.RED) + errorMessage) : List.of();
-    }
-
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static Builder builder(String runningMessage) {
-        return new Builder().runningMessage(runningMessage);
+        return errorMessage != null
+            ? List.of(theme.failure(symbols.fail()) + " " + errorMessage)
+            : List.of();
     }
 
     public static class Builder {
+        private final Theme theme;
+        private final Symbols symbols;
         private String runningMessage;
         private String errorMessage;
         private String completeMessage;
+
+        Builder(Theme theme, Symbols symbols) {
+            this.theme = theme;
+            this.symbols = symbols;
+        }
 
         public Builder runningMessage(String runningMessage) {
             this.runningMessage = runningMessage;
@@ -72,7 +79,7 @@ public class Spinner implements ProgressBar {
         }
 
         public Spinner build() {
-            return new Spinner(runningMessage, errorMessage, completeMessage);
+            return new Spinner(theme, symbols, runningMessage, errorMessage, completeMessage);
         }
     }
 }

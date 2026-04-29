@@ -4,6 +4,10 @@ import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob.Property;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob.Property.ParameterDefinition;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob.Property.ParameterDefinition.DefaultParameterValue;
+import com.github.mirum8.jnscli.shell.ShellPrinter;
+import com.github.mirum8.jnscli.shell.TerminalCapabilities;
+import com.github.mirum8.jnscli.shell.TestCapabilities;
+import com.github.mirum8.jnscli.shell.Theme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -11,6 +15,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class ParameterServiceTest {
 
@@ -58,7 +64,7 @@ class ParameterServiceTest {
         ParameterService service = serviceWithoutPrompters();
         WorkflowJob job = jobWithParameters(
             stringParam("env", "prod"),
-            paramWithoutDefault("uploadedFile", "FileParameterDefinition")
+            paramWithoutDefault("region", "StringParameterDefinition")
         );
 
         // when
@@ -69,11 +75,47 @@ class ParameterServiceTest {
     }
 
     @Test
+    void useDefaultsRejectsFileParameter() {
+        // given
+        ParameterService service = serviceWithoutPrompters();
+        WorkflowJob job = jobWithParameters(
+            stringParam("env", "prod"),
+            paramWithoutDefault("uploadedFile", "FileParameterDefinition")
+        );
+
+        // when / then
+        List<String> noOverrides = List.of();
+        assertThatThrownBy(() -> service.prompt(job, noOverrides, true))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("uploadedFile")
+            .hasMessageContaining("--defaults");
+    }
+
+    @Test
+    void useDefaultsAllowsFileParameterWhenSuppliedExplicitly() {
+        // given
+        ParameterService service = serviceWithoutPrompters();
+        WorkflowJob job = jobWithParameters(
+            stringParam("env", "prod"),
+            paramWithoutDefault("uploadedFile", "FileParameterDefinition")
+        );
+
+        // when
+        Map<String, String> actualParameters = service.prompt(job, List.of("uploadedFile=/tmp/upload.txt"), true);
+
+        // then
+        assertThat(actualParameters).containsExactly(
+            Map.entry("env", "prod"),
+            Map.entry("uploadedFile", "/tmp/upload.txt")
+        );
+    }
+
+    @Test
     void useDefaultsFalseFallsBackToPrompter() {
         // given
         ParameterService service = new ParameterService(new ParameterPrompterRegistry(
             List.of(new FixedStringPrompter("dev")), List.of()
-        ));
+        ), mock(ShellPrinter.class), new Theme(disabledCaps()));
         WorkflowJob job = jobWithParameters(stringParam("env", "prod"));
 
         // when
@@ -84,7 +126,11 @@ class ParameterServiceTest {
     }
 
     private ParameterService serviceWithoutPrompters() {
-        return new ParameterService(new ParameterPrompterRegistry(List.of(), List.of()));
+        return new ParameterService(new ParameterPrompterRegistry(List.of(), List.of()), mock(ShellPrinter.class), new Theme(disabledCaps()));
+    }
+
+    private TerminalCapabilities disabledCaps() {
+        return TestCapabilities.disabled();
     }
 
     private WorkflowJob jobWithParameters(ParameterDefinition... parameters) {
