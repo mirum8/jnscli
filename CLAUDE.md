@@ -65,3 +65,8 @@ Because the shipping artifact is a native image:
 - Domain types are `record`s; mappers/services are `@Component`/`@Service` constructor-injected.
 - Config lives in `~/.config/jns/` (config, mapping, error.log). Never hardcode a different path — go through `FileUtil.resolveHomeDir` and `SettingsProperties`.
 - The shell prompt is `jns:>` (set in `JshellApplication.getPrompt`).
+
+### After Task Completion (don't ask for confirmations, just do)
+
+- You MUST run `find-bugs` on the diff, then `/simplify`, `/security-review`, and `/sonar` — fix every issue each one
+  reports. Never skip these steps. Run without confirmation.
