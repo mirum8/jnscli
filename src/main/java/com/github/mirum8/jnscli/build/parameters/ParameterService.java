@@ -18,14 +18,7 @@ public class ParameterService {
         this.prompterRegistry = prompterRegistry;
     }
 
-    /**
-     * Prompts for parameters that are not provided in command line
-     *
-     * @param job        description from Jenkins
-     * @param parameters list of parameters provided in command line in format key=value
-     * @return map of parameters
-     */
-    public Map<String, String> prompt(WorkflowJob job, List<String> parameters) {
+    public Map<String, String> prompt(WorkflowJob job, List<String> parameters, boolean useDefaults) {
         List<ParameterDefinition> parameterDefinitions = job.property().stream()
             .map(WorkflowJob.Property::parameterDefinitions)
             .filter(Objects::nonNull)
@@ -43,6 +36,11 @@ public class ParameterService {
         parameterDefinitions.forEach(param -> {
             if (parametersFromInput.containsKey(param.name())) {
                 result.put(param.name(), parametersFromInput.get(param.name()));
+            } else if (useDefaults) {
+                var dpv = param.defaultParameterValue();
+                if (dpv != null && dpv.value() != null) {
+                    result.put(param.name(), param.defaultValue());
+                }
             } else if (prompterRegistry.getStaticParameterTypes().contains(param.type())) {
                 result.put(param.name(), prompterRegistry.getStaticPrompter(param.type()).prompt(param));
             } else if (prompterRegistry.getDynamicParameterTypes().contains(param.type())) {

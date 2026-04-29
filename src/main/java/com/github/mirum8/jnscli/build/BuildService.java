@@ -70,7 +70,7 @@ class BuildService {
         this.errorService = errorService;
     }
 
-    void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi) {
+    void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi, boolean useDefaults) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
@@ -85,8 +85,8 @@ class BuildService {
             return;
         }
 
-        Map<String, String> filledParameters = parameters == null || parameters.isEmpty()
-            ? promptParameters(workflowJob, parameters)
+        Map<String, String> filledParameters = (useDefaults || parameters == null || parameters.isEmpty())
+            ? parameterService.prompt(workflowJob, parameters, useDefaults)
             : Map.of();
 
         Result<Void> result = workflowJob.property().stream()
@@ -202,10 +202,6 @@ class BuildService {
             start = progressiveConsoleText.nextStart();
             Threads.sleepSecs(3);
         } while (progressiveConsoleText.hasMoreData());
-    }
-
-    private Map<String, String> promptParameters(WorkflowJob workflowJob, List<String> parameters) {
-        return parameterService.prompt(workflowJob, parameters);
     }
 
     private String getErrorMessage(JobDescriptor job, int buildNumber, boolean useAi) {

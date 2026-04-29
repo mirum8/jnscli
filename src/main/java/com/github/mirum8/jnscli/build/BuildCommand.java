@@ -21,8 +21,9 @@ public class BuildCommand {
                       @Option(longNames = "quiet", shortNames = 'q') boolean quiet,
                       @Option(longNames = "log", shortNames = 'l') boolean showLog,
                       @Option(arity = CommandRegistration.OptionArity.ZERO_OR_MORE, longNames = "params", shortNames = 'p') List<String> parameters,
-                      @Option(longNames = "ai", description = "Analyse errors with AI") boolean useAi) {
-        buildService.build(jobId, !quiet, !quiet && showLog, parameters, useAi);
+                      @Option(longNames = "ai", description = "Analyse errors with AI") boolean useAi,
+                      @Option(longNames = "defaults", shortNames = 'd', description = "Run with default parameter values without prompting") boolean useDefaults) {
+        buildService.build(jobId, !quiet, !quiet && showLog, parameters, useAi, useDefaults);
 
     }
 }
