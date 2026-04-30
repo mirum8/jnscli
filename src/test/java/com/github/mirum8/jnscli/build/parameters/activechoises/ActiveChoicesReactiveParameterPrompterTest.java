@@ -1,6 +1,6 @@
 package com.github.mirum8.jnscli.build.parameters.activechoises;
 
-import com.github.mirum8.jnscli.http.HttpRequestBuilder;
+import com.github.mirum8.jnscli.http.HttpRequestBuilderFactory;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.settings.Settings;
 import com.github.mirum8.jnscli.settings.SettingsService;
@@ -56,16 +56,15 @@ class ActiveChoicesReactiveParameterPrompterTest {
     @Mock
     private SettingsService settingsService;
 
-    @InjectMocks
-    private HttpRequestBuilder httpRequestBuilder;
+    private HttpRequestBuilderFactory httpRequestBuilderFactory;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         settingsService = Mockito.mock(SettingsService.class);
         when(settingsService.readSettings()).thenReturn(new Settings("http://example.com", "user", "test"));
-        httpRequestBuilder = new HttpRequestBuilder(settingsService);
-        activeChoicesReactiveParameterPrompter = new ActiveChoicesReactiveParameterPrompter(shellPrompter, httpClient, httpRequestBuilder, activeChoiceExtractor);
+        httpRequestBuilderFactory = new HttpRequestBuilderFactory(settingsService);
+        activeChoicesReactiveParameterPrompter = new ActiveChoicesReactiveParameterPrompter(shellPrompter, httpClient, httpRequestBuilderFactory, activeChoiceExtractor);
     }
 
     @Test

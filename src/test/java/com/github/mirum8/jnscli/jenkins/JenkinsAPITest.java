@@ -1,7 +1,7 @@
 package com.github.mirum8.jnscli.jenkins;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.mirum8.jnscli.http.HttpRequestBuilder;
+import com.github.mirum8.jnscli.http.HttpRequestBuilderFactory;
 import com.github.mirum8.jnscli.settings.Settings;
 import com.github.mirum8.jnscli.settings.SettingsService;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ class JenkinsAPITest {
         objectMapper = new ObjectMapper();
         jenkinsAPI = new JenkinsAPI(
             httpClient,
-            new HttpRequestBuilder(settingsService),
+            new HttpRequestBuilderFactory(settingsService),
             settingsService
         );
     }
@@ -118,6 +118,18 @@ class JenkinsAPITest {
         }
 
         @Test
+        void shouldUrlEncodeSpecialCharactersInParameterValues() throws IOException, InterruptedException {
+            mockHttpResponse(201, "", "Location", "http://localhost/queue/item/123/");
+
+            jenkinsAPI.runJob(JOB_URL, List.of("token=a=b&c d#e"));
+
+            ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+            verify(httpClient).send(captor.capture(), any());
+            assertThat(captor.getValue().uri().getRawQuery())
+                .isEqualTo("token=a%3Db%26c+d%23e");
+        }
+
+        @Test
         void shouldRunJobWithFileParameter() throws IOException, InterruptedException {
             mockHttpResponse(201, "", "Location", "http://localhost/queue/item/123/");
 
@@ -178,6 +190,25 @@ class JenkinsAPITest {
         Folder result = jenkinsAPI.getFolderJobs(BASE_URL + "/job/folder1");
 
         assertThat(result).isEqualTo(objectMapper.readValue(json, Folder.class));
+    }
+
+    @Test
+    void doesNotLeakHeadersBetweenRequests() throws IOException, InterruptedException {
+        mockHttpResponse(201, "", "Location", "http://localhost/queue/item/1/");
+
+        Path tempFile = Files.createTempFile("leak", ".txt");
+        try {
+            Files.writeString(tempFile, "x");
+            jenkinsAPI.runJobWithFileParam(JOB_URL, "file", tempFile, List.of("a=b"));
+            jenkinsAPI.abortJob(JOB_URL, 1);
+
+            ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+            verify(httpClient, times(2)).send(captor.capture(), any());
+            HttpRequest secondRequest = captor.getAllValues().get(1);
+            assertThat(secondRequest.headers().firstValue("Content-Type")).isEmpty();
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
     }
 
     @Test

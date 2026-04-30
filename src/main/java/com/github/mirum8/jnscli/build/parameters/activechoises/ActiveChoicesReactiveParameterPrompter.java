@@ -2,7 +2,7 @@ package com.github.mirum8.jnscli.build.parameters.activechoises;
 
 import com.github.mirum8.jnscli.build.parameters.DynamicReferencedParameterPrompter;
 import com.github.mirum8.jnscli.http.HttpMethod;
-import com.github.mirum8.jnscli.http.HttpRequestBuilder;
+import com.github.mirum8.jnscli.http.HttpRequestBuilderFactory;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
 import org.springframework.stereotype.Component;
@@ -26,15 +26,15 @@ public class ActiveChoicesReactiveParameterPrompter implements DynamicReferenced
 
     private final ShellPrompter shellPrompter;
     private final HttpClient httpClient;
-    private final HttpRequestBuilder httpRequestBuilder;
+    private final HttpRequestBuilderFactory httpRequestBuilderFactory;
     private final ActiveChoiceExtractor activeChoiceExtractor;
 
     private String activeChoiceHtml;
 
-    public ActiveChoicesReactiveParameterPrompter(ShellPrompter shellPrompter, HttpClient httpClient, HttpRequestBuilder httpRequestBuilder, ActiveChoiceExtractor activeChoiceExtractor) {
+    public ActiveChoicesReactiveParameterPrompter(ShellPrompter shellPrompter, HttpClient httpClient, HttpRequestBuilderFactory httpRequestBuilderFactory, ActiveChoiceExtractor activeChoiceExtractor) {
         this.shellPrompter = shellPrompter;
         this.httpClient = httpClient;
-        this.httpRequestBuilder = httpRequestBuilder;
+        this.httpRequestBuilderFactory = httpRequestBuilderFactory;
         this.activeChoiceExtractor = activeChoiceExtractor;
     }
 
@@ -58,7 +58,7 @@ public class ActiveChoicesReactiveParameterPrompter implements DynamicReferenced
         try {
             String path = "/$stapler/bound/script/$stapler/bound/" + activeChoice.uid() + "?var=cascadeChoiceParameter&methods=doUpdate,getChoicesForUI";
             HttpResponse<String> response = httpClient.send(
-                httpRequestBuilder.method(HttpMethod.GET)
+                httpRequestBuilderFactory.create().method(HttpMethod.GET)
                     .path(path)
                     .header("Accept", "*/*")
                     .build(),
@@ -86,7 +86,7 @@ public class ActiveChoicesReactiveParameterPrompter implements DynamicReferenced
     List<String> getChoices(ActiveChoice activeChoice, String crumb) {
         try {
             HttpResponse<String> response = httpClient.send(
-                httpRequestBuilder.method(HttpMethod.POST)
+                httpRequestBuilderFactory.create().method(HttpMethod.POST)
                     .path("/$stapler/bound/" + activeChoice.uid() + "/getChoicesForUI")
                     .header("Content-Type", "application/x-stapler-method-invocation;charset=UTF-8")
                     .header("Crumb", crumb)
@@ -124,7 +124,7 @@ public class ActiveChoicesReactiveParameterPrompter implements DynamicReferenced
         try {
             String path = "/$stapler/bound/" + activeChoice.uid() + "/doUpdate";
             HttpResponse<String> response = httpClient.send(
-                httpRequestBuilder.method(HttpMethod.POST)
+                httpRequestBuilderFactory.create().method(HttpMethod.POST)
                     .header("Content-Type", "application/x-stapler-method-invocation;charset=UTF-8")
                     .header("Crumb", crumb)
                     .header("Jenkins-Crumb", crumb)
@@ -160,7 +160,7 @@ public class ActiveChoicesReactiveParameterPrompter implements DynamicReferenced
         }
         try {
             HttpResponse<String> response = httpClient.send(
-                httpRequestBuilder.method(HttpMethod.GET).url(job.url() + "build?delay=0sec").build(),
+                httpRequestBuilderFactory.create().method(HttpMethod.GET).url(job.url() + "build?delay=0sec").build(),
                 HttpResponse.BodyHandlers.ofString()
             );
             if (response.statusCode() != 405) {

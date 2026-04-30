@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mirum8.jnscli.http.HttpMethod;
 import com.github.mirum8.jnscli.http.HttpRequestBuilder;
+import com.github.mirum8.jnscli.http.HttpRequestBuilderFactory;
+import com.github.mirum8.jnscli.util.Strings;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -17,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class JenkinsApiUtils {
     private static final Logger log = Logger.getLogger(JenkinsApiUtils.class.getName());
@@ -34,11 +38,11 @@ public class JenkinsApiUtils {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
-    public static HttpResponse<String> sendRequest(HttpMethod httpMethod, String url, HttpRequestBuilder httpRequestBuilder, HttpClient httpClient) {
+    public static HttpResponse<String> sendRequest(HttpMethod httpMethod, String url, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
         int attempts = 0;
         while (attempts < MAX_RETRY_ATTEMPTS) {
             try {
-                return send(httpMethod, url, httpRequestBuilder, httpClient);
+                return send(httpMethod, url, builderFactory.create(), httpClient);
             } catch (HttpTimeoutException e) {
                 if (attempts < MAX_RETRY_ATTEMPTS - 1) {
                     attempts++;
@@ -59,7 +63,6 @@ public class JenkinsApiUtils {
     }
 
     private static HttpResponse<String> send(HttpMethod httpMethod, String url, HttpRequestBuilder httpRequestBuilder, HttpClient httpClient) throws HttpTimeoutException {
-        url = url.replace(" ", "%20");
         try {
             HttpRequest request = httpRequestBuilder
                 .url(url)
@@ -97,28 +100,31 @@ public class JenkinsApiUtils {
         return new QueueItemLocation(location);
     }
 
-    public static QueueItemLocation runJobWithFileParam(String jobUrl, String fileParamName, Path filePath, List<String> parameters, HttpRequestBuilder httpRequestBuilder, HttpClient httpClient) {
-        String url = jobUrl + "/buildWithParameters";
-
-        if (parameters != null && !parameters.isEmpty()) {
-            url += "?" + String.join("&", parameters);
-        }
-
+    public static QueueItemLocation runJobWithFileParam(String jobUrl, String fileParamName, Path filePath, List<String> parameters, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
+        String url = buildParameterizedUrl(jobUrl, parameters);
         try {
-            httpRequestBuilder
-                .url(url)
-                .method(HttpMethod.POST)
+            HttpRequestBuilder builder = builderFactory.create()
                 .header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY)
                 .body(buildMultipartBody(fileParamName, filePath));
 
-            HttpResponse<String> response = sendRequest(HttpMethod.POST, url, httpRequestBuilder, httpClient);
+            HttpResponse<String> response = send(HttpMethod.POST, url, builder, httpClient);
             if (response.statusCode() != 200 && response.statusCode() != 201) {
                 throw new JenkinsAPIException("Failed to run job with file parameter, status code: " + response.statusCode());
             }
             return getQueueItemLocation(response);
+        } catch (HttpTimeoutException e) {
+            throw new JenkinsAPIException("Request timed out", e);
         } catch (IOException e) {
             throw new JenkinsAPIException(e);
         }
+    }
+
+    public static String buildParameterizedUrl(String jobUrl, List<String> parameters) {
+        String url = jobUrl + "/buildWithParameters";
+        if (parameters != null && !parameters.isEmpty()) {
+            url += "?" + encodeQuery(parameters);
+        }
+        return url;
     }
 
     private static HttpRequest.BodyPublisher buildMultipartBody(String fileParamName, Path filePath) throws IOException {
@@ -138,7 +144,7 @@ public class JenkinsApiUtils {
         }
     }
 
-    public static ProgressiveConsoleText getProgressiveConsoleText(String jobUrl, int buildNumber, Long start, HttpRequestBuilder httpRequestBuilder, HttpClient httpClient) {
+    public static ProgressiveConsoleText getProgressiveConsoleText(String jobUrl, int buildNumber, Long start, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
         StringBuilder urlBuilder = new StringBuilder(jobUrl)
             .append("/").append(buildNumber)
             .append("/logText/progressiveText");
@@ -148,7 +154,7 @@ public class JenkinsApiUtils {
         }
 
         String url = urlBuilder.toString();
-        HttpResponse<String> response = sendRequest(HttpMethod.GET, url, httpRequestBuilder, httpClient);
+        HttpResponse<String> response = sendRequest(HttpMethod.GET, url, builderFactory, httpClient);
 
         boolean hasMoreData = Boolean.parseBoolean(response.headers().firstValue("X-More-Data").orElse("false"));
         long nextStart = Long.parseLong(response.headers().firstValue("X-Text-Size").orElse("0"));
@@ -157,5 +163,20 @@ public class JenkinsApiUtils {
 
     private static long calculateExponentialBackoff(int attempt) {
         return JenkinsApiUtils.INITIAL_RETRY_DELAY_MS * (long) Math.pow(2, (attempt - 1));
+    }
+
+    public static String encodeQuery(List<String> parameters) {
+        return parameters.stream()
+            .map(JenkinsApiUtils::encodeKeyValue)
+            .collect(Collectors.joining("&"));
+    }
+
+    private static String encodeKeyValue(String keyValue) {
+        String[] parts = Strings.splitOnFirst(keyValue, '=');
+        String key = URLEncoder.encode(parts[0], StandardCharsets.UTF_8);
+        if (parts.length == 1) {
+            return key;
+        }
+        return key + "=" + URLEncoder.encode(parts[1], StandardCharsets.UTF_8);
     }
 }
