@@ -1,6 +1,7 @@
 package com.github.mirum8.jnscli.shell;
 
 import org.jline.terminal.Terminal;
+import org.jline.utils.AttributedString;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
@@ -25,28 +26,40 @@ public class RefreshableMultilineRenderer {
         render(List.of(lines));
     }
 
-    public void render(List<String> lines) {
+    public synchronized void render(List<String> lines) {
         if (caps.supportsAnsi()) {
             clean(linesToRemove);
             linesToRemove = lines.size();
         }
+        int width = caps.width();
         for (String s : lines) {
-            terminal.writer().println(s);
+            terminal.writer().println(truncateToWidth(s, width));
         }
         terminal.writer().flush();
+    }
+
+    private static String truncateToWidth(String line, int width) {
+        if (width <= 0 || line == null || line.length() <= width) {
+            return line;
+        }
+        AttributedString attributed = AttributedString.fromAnsi(line);
+        if (attributed.columnLength() <= width) {
+            return line;
+        }
+        return attributed.columnSubSequence(0, width).toAnsi();
     }
 
     private void clean(int lineAmount) {
         if (lineAmount == 0) {
             return;
         }
-        terminal.writer().print(String.format("\u001B[%dA", lineAmount));
+        terminal.writer().print(String.format("\033[%dA", lineAmount));
         terminal.writer().flush();
-        terminal.writer().print(String.format("\u001B[%dM", lineAmount));
+        terminal.writer().print(String.format("\033[%dM", lineAmount));
         terminal.writer().flush();
     }
 
-    public void reset() {
+    public synchronized void reset() {
         linesToRemove = 0;
     }
 }

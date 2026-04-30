@@ -2,15 +2,21 @@ package com.github.mirum8.jnscli.runner;
 
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
 import com.github.mirum8.jnscli.util.Threads;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Component
 public class CommandRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(CommandRunner.class);
+    private static final long DRAIN_TIMEOUT_SECONDS = 2;
 
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
     private final SpinnerFactory spinnerFactory;
@@ -22,11 +28,16 @@ public class CommandRunner {
 
     public <C, R> Result<R> call(Callable<R> operation, CommandParameters<C> commandParameters) {
         try (var progressBarExecutor = Executors.newScheduledThreadPool(0, Thread.ofVirtual().factory())) {
-            progressBarExecutor.scheduleAtFixedRate(() -> refreshableMultilineRenderer.render(commandParameters.progressBar().running()),
-                0, commandParameters.progressBar().refreshIntervalMillis(), TimeUnit.MILLISECONDS);
+            progressBarExecutor.scheduleWithFixedDelay(() -> {
+                try {
+                    refreshableMultilineRenderer.render(commandParameters.progressBar().running());
+                } catch (Exception e) {
+                    log.warn("Progress bar tick failed; will retry on next interval", e);
+                }
+            }, 0, commandParameters.progressBar().refreshIntervalMillis(), TimeUnit.MILLISECONDS);
             R result = operation.call();
             Result<C> chekingResult = processUntilCompleteOrTimeout(commandParameters);
-            progressBarExecutor.shutdown();
+            drain(progressBarExecutor);
             return switch (chekingResult) {
                 case Result.Success<?>(Object value) -> {
                     processSuccess(commandParameters, (C) value);
@@ -36,7 +47,7 @@ public class CommandRunner {
                     processFailure(commandParameters, (C) value);
                     yield new Result.Failure<>(result);
                 }
-                case Result.Failure<?> ignored -> {
+                case Result.Failure<?>(Object ignored) -> {
                     precessTimeout(commandParameters);
                     yield new Result.Failure<>(result);
                 }
@@ -45,6 +56,18 @@ public class CommandRunner {
             throw new CommandRunnerException(e);
         } finally {
             refreshableMultilineRenderer.reset();
+        }
+    }
+
+    private static void drain(ScheduledExecutorService executor) {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
