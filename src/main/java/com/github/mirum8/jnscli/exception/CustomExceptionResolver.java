@@ -8,7 +8,7 @@ import org.springframework.shell.command.CommandExceptionResolver;
 import org.springframework.shell.command.CommandHandlingResult;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Component
@@ -30,7 +30,7 @@ public class CustomExceptionResolver implements CommandExceptionResolver {
             case UserInterruptException ignored -> CommandHandlingResult.of("User interrupt\n");
             case CommandNotFound ignored -> CommandHandlingResult.of("Command not found. See 'jns help'\n");
             default -> {
-                log.severe(() -> "Error: " + Arrays.toString(ex.getStackTrace()));
+                log.log(Level.SEVERE, "Error", ex);
                 String message = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
                 yield CommandHandlingResult.of(messages.failureText(message) + "\n", 1);
             }

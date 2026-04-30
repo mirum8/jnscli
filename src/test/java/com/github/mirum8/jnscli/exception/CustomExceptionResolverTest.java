@@ -16,6 +16,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,6 +69,32 @@ class CustomExceptionResolverTest {
 
         assertThat(result.exitCode()).isEqualTo(1);
         assertThat(result.message()).contains("HTTP: 500");
+    }
+
+    @Test
+    void severeLogPreservesExceptionTypeAndCause() throws IOException {
+        CustomExceptionResolver resolver = newResolver();
+        Logger resolverLogger = Logger.getLogger(CustomExceptionResolver.class.getName());
+        List<LogRecord> records = new ArrayList<>();
+        Handler captureHandler = new Handler() {
+            @Override public void publish(LogRecord logRecord) { records.add(logRecord); }
+            @Override public void flush() { /* no-op for test capture */ }
+            @Override public void close() { /* no-op for test capture */ }
+        };
+        captureHandler.setLevel(Level.ALL);
+        resolverLogger.addHandler(captureHandler);
+        resolverLogger.setLevel(Level.ALL);
+        try {
+            IllegalStateException root = new IllegalStateException("root cause");
+            RuntimeException wrapper = new RuntimeException("boom", root);
+
+            resolver.resolve(wrapper);
+
+            assertThat(records).hasSize(1);
+            assertThat(records.getFirst().getThrown()).isSameAs(wrapper);
+        } finally {
+            resolverLogger.removeHandler(captureHandler);
+        }
     }
 
     @Test
