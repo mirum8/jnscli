@@ -4,6 +4,7 @@ import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob.Property.ParameterDefinition;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.Theme;
+import com.github.mirum8.jnscli.util.Strings;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -35,8 +36,8 @@ public class ParameterService {
 
         Map<String, String> parametersFromInput = parameters != null
             ? parameters.stream()
-            .map(keyValue -> keyValue.split("="))
-            .collect(Collectors.toMap(split -> split[0], split -> split[1]))
+            .map(ParameterService::parseKeyValue)
+            .collect(Collectors.toMap(kv -> kv[0], kv -> kv[1]))
             : Map.of();
 
         Map<String, String> result = new LinkedHashMap<>();
@@ -47,25 +48,45 @@ public class ParameterService {
             shellPrinter.println(theme.header("Parameters"));
         }
 
-        parameterDefinitions.forEach(param -> {
-            if (parametersFromInput.containsKey(param.name())) {
-                result.put(param.name(), parametersFromInput.get(param.name()));
-            } else if (useDefaults) {
-                if (FILE_PARAMETER_TYPE.equals(param.type())) {
-                    throw new IllegalArgumentException("--defaults cannot be used with file parameter '" + param.name() + "'; specify -p " + param.name() + "=<path> explicitly");
-                }
-                var dpv = param.defaultParameterValue();
-                if (dpv != null && dpv.value() != null) {
-                    result.put(param.name(), param.defaultValue());
-                }
-            } else if (prompterRegistry.getStaticParameterTypes().contains(param.type())) {
-                result.put(param.name(), prompterRegistry.getStaticPrompter(param.type()).prompt(param));
-            } else if (prompterRegistry.getDynamicParameterTypes().contains(param.type())) {
-                result.put(param.name(), prompterRegistry.getDynamicPrompter(param.type()).prompt(job, param, result));
-            } else {
-                throw new IllegalArgumentException("The parameter with type " + param.type() + " is not supported");
-            }
-        });
+        parameterDefinitions.forEach(param -> resolveParameter(job, param, parametersFromInput, useDefaults, result));
         return result;
+    }
+
+    private void resolveParameter(WorkflowJob job, ParameterDefinition param, Map<String, String> parametersFromInput, boolean useDefaults, Map<String, String> result) {
+        if (parametersFromInput.containsKey(param.name())) {
+            result.put(param.name(), parametersFromInput.get(param.name()));
+            return;
+        }
+        if (useDefaults) {
+            applyDefault(param, result);
+            return;
+        }
+        if (prompterRegistry.getStaticParameterTypes().contains(param.type())) {
+            result.put(param.name(), prompterRegistry.getStaticPrompter(param.type()).prompt(param));
+            return;
+        }
+        if (prompterRegistry.getDynamicParameterTypes().contains(param.type())) {
+            result.put(param.name(), prompterRegistry.getDynamicPrompter(param.type()).prompt(job, param, result));
+            return;
+        }
+        throw new IllegalArgumentException("The parameter with type " + param.type() + " is not supported");
+    }
+
+    private static void applyDefault(ParameterDefinition param, Map<String, String> result) {
+        if (FILE_PARAMETER_TYPE.equals(param.type())) {
+            throw new IllegalArgumentException("--defaults cannot be used with file parameter '" + param.name() + "'; specify -p " + param.name() + "=<path> explicitly");
+        }
+        var dpv = param.defaultParameterValue();
+        if (dpv != null && dpv.value() != null) {
+            result.put(param.name(), param.defaultValue());
+        }
+    }
+
+    private static String[] parseKeyValue(String keyValue) {
+        String[] parts = Strings.splitOnFirst(keyValue, '=');
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid parameter '" + keyValue + "', expected key=value");
+        }
+        return parts;
     }
 }

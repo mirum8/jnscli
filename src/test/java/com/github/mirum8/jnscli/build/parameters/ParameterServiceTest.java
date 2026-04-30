@@ -111,6 +111,37 @@ class ParameterServiceTest {
     }
 
     @Test
+    void preservesEqualsInsideValue() {
+        ParameterService service = serviceWithoutPrompters();
+        WorkflowJob job = jobWithParameters(stringParam("token", "fallback"));
+
+        Map<String, String> actualParameters = service.prompt(job, List.of("token=a=b=c"), true);
+
+        assertThat(actualParameters).containsExactly(Map.entry("token", "a=b=c"));
+    }
+
+    @Test
+    void acceptsEmptyValue() {
+        ParameterService service = serviceWithoutPrompters();
+        WorkflowJob job = jobWithParameters(stringParam("flag", "fallback"));
+
+        Map<String, String> actualParameters = service.prompt(job, List.of("flag="), true);
+
+        assertThat(actualParameters).containsExactly(Map.entry("flag", ""));
+    }
+
+    @Test
+    void rejectsParameterWithoutEquals() {
+        ParameterService service = serviceWithoutPrompters();
+        WorkflowJob job = jobWithParameters(stringParam("env", "prod"));
+
+        List<String> malformed = List.of("noEqualsHere");
+        assertThatThrownBy(() -> service.prompt(job, malformed, true))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("noEqualsHere");
+    }
+
+    @Test
     void useDefaultsFalseFallsBackToPrompter() {
         // given
         ParameterService service = new ParameterService(new ParameterPrompterRegistry(

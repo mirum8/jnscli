@@ -108,9 +108,7 @@ class BuildService {
             return;
         }
 
-        Map<String, String> filledParameters = (useDefaults || parameters == null || parameters.isEmpty())
-            ? parameterService.prompt(workflowJob, parameters, useDefaults)
-            : Map.of();
+        Map<String, String> filledParameters = parameterService.prompt(workflowJob, parameters, useDefaults);
 
         Result<Void> result = workflowJob.property().stream()
             .map(WorkflowJob.Property::parameterDefinitions)
