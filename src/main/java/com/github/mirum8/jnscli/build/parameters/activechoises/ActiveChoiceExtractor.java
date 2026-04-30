@@ -26,45 +26,50 @@ public class ActiveChoiceExtractor {
     }
 
     private Optional<ActiveChoice> extractActiveChoice(String parameterName, String html) {
-        Document doc = Jsoup.parse(html);
-
-        Element activeChoiceDiv = doc.selectFirst("div.active-choice:has(input[name=name][value=" + parameterName + "])");
-
-        if (activeChoiceDiv != null) {
-            Element scriptElement = activeChoiceDiv.parent().parent().nextElementSibling();
-
-            if (scriptElement != null && scriptElement.tagName().equals("script")) {
-                String scriptContent = scriptElement.toString();
-                String uid = extractUid(scriptContent);
-                if (uid != null) {
-                    List<String> referencedParameters = extractReferencedParameters(scriptElement.nextElementSibling().toString());
-                    return Optional.of(new ActiveChoice(uid, referencedParameters, false, null));
+        return findScriptElement(parameterName, html)
+            .flatMap(scriptElement -> {
+                String uid = extractUid(scriptElement.toString());
+                if (uid == null) {
+                    return Optional.empty();
                 }
-            }
-        }
-
-        return Optional.empty();
+                Element refScript = scriptElement.nextElementSibling();
+                List<String> referencedParameters = refScript == null ? List.of() : extractReferencedParameters(refScript.toString());
+                return Optional.of(new ActiveChoice(uid, referencedParameters, false, null));
+            });
     }
 
     private Optional<ActiveChoice> extractActiveChoiceLegacy(String parameterName, String html) {
-        Document doc = Jsoup.parse(html);
-
-        Element activeChoiceDiv = doc.selectFirst("div.active-choice:has(input[name=name][value=" + parameterName + "])");
-
-        if (activeChoiceDiv != null) {
-            Element scriptElement = activeChoiceDiv.parent().parent().nextElementSibling();
-
-            if (scriptElement != null && scriptElement.tagName().equals("script")) {
+        return findScriptElement(parameterName, html)
+            .flatMap(scriptElement -> {
                 String scriptContent = scriptElement.html();
                 String uid = extractUidLegacy(scriptContent);
-                if (uid != null) {
-                    List<String> referencedParameters = extractReferencedParameters(scriptContent);
-                    return Optional.of(new ActiveChoice(uid, referencedParameters, true, extractCrumbsLegacy(scriptContent)));
+                if (uid == null) {
+                    return Optional.empty();
                 }
-            }
-        }
+                List<String> referencedParameters = extractReferencedParameters(scriptContent);
+                return Optional.of(new ActiveChoice(uid, referencedParameters, true, extractCrumbsLegacy(scriptContent)));
+            });
+    }
 
-        return Optional.empty();
+    private Optional<Element> findScriptElement(String parameterName, String html) {
+        Document doc = Jsoup.parse(html);
+        Element activeChoiceDiv = doc.selectFirst("div.active-choice:has(input[name=name][value=\"" + escapeForCssAttr(parameterName) + "\"])");
+        if (activeChoiceDiv == null) {
+            return Optional.empty();
+        }
+        Element grandparent = parentOrNull(parentOrNull(activeChoiceDiv));
+        if (grandparent == null) {
+            return Optional.empty();
+        }
+        Element scriptElement = grandparent.nextElementSibling();
+        if (scriptElement == null || !scriptElement.tagName().equals("script")) {
+            return Optional.empty();
+        }
+        return Optional.of(scriptElement);
+    }
+
+    private static Element parentOrNull(Element element) {
+        return element == null ? null : element.parent();
     }
 
     private String extractCrumbsLegacy(String scriptContent) {
@@ -80,6 +85,10 @@ public class ActiveChoiceExtractor {
     private String extractUidLegacy(String scriptContent) {
         Matcher uidMatcher = UID_PATTERN_V2.matcher(scriptContent);
         return uidMatcher.find() ? uidMatcher.group(1) : null;
+    }
+
+    private static String escapeForCssAttr(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private List<String> extractReferencedParameters(String scriptContent) {

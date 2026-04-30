@@ -33,6 +33,32 @@ class ActiveChoiceExtractorTest {
     }
 
     @Test
+    void handlesParameterNameWithSpecialCssCharacters() {
+        String html = """
+            <html><body>
+              <div class="jenkins-form-item">
+                <div class="setting-main">
+                  <div name="parameter" class="active-choice">
+                    <input name="name" type="hidden" value="MY[1]">
+                    <select name="value"></select>
+                  </div>
+                </div>
+              </div>
+              <script src="/$stapler/bound/script/$stapler/bound/abc-123-uid"></script>
+              <script type="text/javascript">
+                var referencedParameters = Array();
+                referencedParameters.push("OTHER");
+              </script>
+            </body></html>
+            """;
+
+        ActiveChoice activeChoice = activeChoiceExtractor.getActiveChoice("MY[1]", html);
+
+        Assertions.assertThat(activeChoice).isNotEqualTo(ActiveChoice.NOT_FOUND);
+        Assertions.assertThat(activeChoice.uid()).isEqualTo("abc-123-uid");
+    }
+
+    @Test
     void testGetActiveChoice_v2() throws Exception {
         Path path = Paths.get(getClass().getClassLoader().getResource("html/active_choice_v2.html").toURI());
         String html = Files.readString(path);
