@@ -14,7 +14,8 @@ import java.util.Set;
 
 public class BuildProgressBar implements ProgressBar {
     private static final long DEFAULT_STAGE_DURATION_MS = 60_000L;
-    private static final int REFRESH_INTERVAL_MS = 5000;
+    private static final int REFRESH_INTERVAL_MS = 100;
+    private static final long FETCH_INTERVAL_MS = 5000L;
     private static final int MAX_RUNNING_PERCENT = 99;
     private static final int MIN_PENDING_BUDGET = 20;
     private static final String STATUS_SUCCESS = "SUCCESS";
@@ -31,8 +32,11 @@ public class BuildProgressBar implements ProgressBar {
     private final Symbols symbols;
     private final String jobUrl;
     private final int buildNumber;
+    private final char[] spinnerFrames;
     private List<WorkflowRun.Stage> previousBuildStages;
     private WorkflowRun latestRun;
+    private long latestRunFetchedAtMillis;
+    private int spinCounter;
 
     public BuildProgressBar(PipelineAPI pipelineAPI, PercentageBar percentageBar,
                             TerminalCapabilities caps, Theme theme, Symbols symbols,
@@ -44,12 +48,13 @@ public class BuildProgressBar implements ProgressBar {
         this.symbols = symbols;
         this.jobUrl = jobUrl;
         this.buildNumber = buildNumber;
+        this.spinnerFrames = symbols.spinnerFrames();
     }
 
     @Override
     public List<String> running() {
-        WorkflowRun run = pipelineAPI.getJobBuildDescription(jobUrl, buildNumber);
-        latestRun = run;
+        WorkflowRun run = currentRun();
+        spinCounter = (spinCounter + 1) % spinnerFrames.length;
         return composeLines(run, PENDING_SUFFIX);
     }
 
@@ -93,8 +98,9 @@ public class BuildProgressBar implements ProgressBar {
             long ms = done.stream().mapToLong(WorkflowRun.Stage::durationMillis).sum();
             lines.add(doneSummaryLine(done.size(), ms));
         }
+        String spinnerIcon = String.valueOf(spinnerFrames[spinCounter]);
         for (WorkflowRun.Stage stage : active) {
-            lines.add(percentageBar.of(activePercent(stage), stage.name()));
+            lines.add(percentageBar.running(activePercent(stage), stage.name(), spinnerIcon));
         }
         for (WorkflowRun.Stage stage : failed) {
             lines.add(percentageBar.error(failedPercent(stage), stage.name()));
@@ -156,8 +162,10 @@ public class BuildProgressBar implements ProgressBar {
     }
 
     private WorkflowRun currentRun() {
-        if (latestRun == null) {
+        long now = currentTimeMillis();
+        if (latestRun == null || now - latestRunFetchedAtMillis >= FETCH_INTERVAL_MS) {
             latestRun = pipelineAPI.getJobBuildDescription(jobUrl, buildNumber);
+            latestRunFetchedAtMillis = now;
         }
         return latestRun;
     }

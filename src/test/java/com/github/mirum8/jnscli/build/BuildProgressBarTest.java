@@ -9,6 +9,8 @@ import com.github.mirum8.jnscli.shell.Theme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -134,6 +136,72 @@ class BuildProgressBarTest {
     }
 
     @Test
+    void runningStageLineIncludesSpinnerFrame() {
+        PipelineAPI pipelineAPI = mock(PipelineAPI.class);
+        WorkflowRun current = workflowRunWithStages(stage("compile", "IN_PROGRESS"));
+        when(pipelineAPI.getJobBuildDescription("job-url", 1)).thenReturn(current);
+        BuildProgressBar bar = unicodeBuildProgressBar(pipelineAPI, "job-url", 1);
+
+        List<String> actual = bar.running();
+
+        assertThat(actual).hasSize(1);
+        assertThat(actual.getFirst().codePoints()).anyMatch(c -> "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏".indexOf(c) >= 0);
+    }
+
+    @Test
+    void spinnerFrameAdvancesBetweenTicks() {
+        PipelineAPI pipelineAPI = mock(PipelineAPI.class);
+        WorkflowRun current = workflowRunWithStages(stage("compile", "IN_PROGRESS"));
+        when(pipelineAPI.getJobBuildDescription("job-url", 1)).thenReturn(current);
+        BuildProgressBar bar = unicodeBuildProgressBar(pipelineAPI, "job-url", 1);
+
+        String firstFrame = extractFirstChar(bar.running().getFirst());
+        String secondFrame = extractFirstChar(bar.running().getFirst());
+
+        assertThat(firstFrame).isNotEqualTo(secondFrame);
+    }
+
+    @Test
+    void runningTicksWithinFetchIntervalDoNotRefetchFromJenkins() {
+        PipelineAPI pipelineAPI = mock(PipelineAPI.class);
+        WorkflowRun current = workflowRunWithStages(stage("compile", "IN_PROGRESS"));
+        when(pipelineAPI.getJobBuildDescription("job-url", 1)).thenReturn(current);
+        AtomicLong now = new AtomicLong(1_000_000L);
+        BuildProgressBar bar = clockedBuildProgressBar(pipelineAPI, "job-url", 1, now::get);
+
+        bar.running();
+        now.addAndGet(100);
+        bar.running();
+        now.addAndGet(100);
+        bar.running();
+
+        verify(pipelineAPI, times(1)).getJobBuildDescription("job-url", 1);
+    }
+
+    @Test
+    void runningRefetchesAfterFetchIntervalElapses() {
+        PipelineAPI pipelineAPI = mock(PipelineAPI.class);
+        WorkflowRun current = workflowRunWithStages(stage("compile", "IN_PROGRESS"));
+        when(pipelineAPI.getJobBuildDescription("job-url", 1)).thenReturn(current);
+        AtomicLong now = new AtomicLong(1_000_000L);
+        BuildProgressBar bar = clockedBuildProgressBar(pipelineAPI, "job-url", 1, now::get);
+
+        bar.running();
+        now.addAndGet(5_000L);
+        bar.running();
+
+        verify(pipelineAPI, times(2)).getJobBuildDescription("job-url", 1);
+    }
+
+    @Test
+    void refreshIntervalIsFastEnoughForSpinnerAnimation() {
+        PipelineAPI pipelineAPI = mock(PipelineAPI.class);
+        BuildProgressBar bar = unicodeBuildProgressBar(pipelineAPI, "job-url", 1);
+
+        assertThat(bar.refreshIntervalMillis()).isLessThanOrEqualTo(200);
+    }
+
+    @Test
     void formatDurationShortRange() {
         assertThat(BuildProgressBar.formatDuration(0L)).isEqualTo("0s");
         assertThat(BuildProgressBar.formatDuration(47_000L)).isEqualTo("47s");
@@ -156,6 +224,31 @@ class BuildProgressBarTest {
         var theme = new Theme(caps);
         var symbols = new Symbols(caps);
         return new BuildProgressBar(pipelineAPI, new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n);
+    }
+
+    private static BuildProgressBar unicodeBuildProgressBar(PipelineAPI pipelineAPI, String url, int n) {
+        var caps = TestCapabilities.unicode(true);
+        var theme = new Theme(caps);
+        var symbols = new Symbols(caps);
+        return new BuildProgressBar(pipelineAPI, new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n);
+    }
+
+    private static BuildProgressBar clockedBuildProgressBar(PipelineAPI pipelineAPI, String url, int n,
+                                                            LongSupplier clock) {
+        var caps = TestCapabilities.unicode(true);
+        var theme = new Theme(caps);
+        var symbols = new Symbols(caps);
+        return new BuildProgressBar(pipelineAPI, new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n) {
+            @Override
+            long currentTimeMillis() {
+                return clock.getAsLong();
+            }
+        };
+    }
+
+    private static String extractFirstChar(String line) {
+        String stripped = line.replaceAll("\\[[;\\d]*m", "");
+        return String.valueOf(stripped.charAt(0));
     }
 
     private static WorkflowRun.Stage stage(String name, String status) {

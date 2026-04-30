@@ -29,18 +29,22 @@ public class PercentageBar {
     }
 
     public String of(int percentage, String statusMessage) {
-        return generateBar(percentage, statusMessage, false);
+        return generateBar(percentage, statusMessage, false, symbols.activeDot());
+    }
+
+    public String running(int percentage, String statusMessage, String runningIcon) {
+        return generateBar(percentage, statusMessage, false, runningIcon);
     }
 
     public String error(int percentage, String statusMessage) {
-        return generateBar(percentage, statusMessage, true);
+        return generateBar(percentage, statusMessage, true, symbols.activeDot());
     }
 
     public String doneIcon() {
         return caps.supportsUnicode() ? theme.success(symbols.ok()) : "";
     }
 
-    private String generateBar(int percentage, String label, boolean isError) {
+    private String generateBar(int percentage, String label, boolean isError, String runningIcon) {
         int clamped = Math.clamp(percentage, 0, MAX_PROGRESS);
         int barSize = barSize();
         State state = state(clamped, isError);
@@ -48,7 +52,7 @@ public class PercentageBar {
 
         if (caps.supportsUnicode()) {
             String bar = unicodeBar(clamped, barSize, state);
-            return String.format("%s %s %3d%%  %s", themedIcon(state), bar, clamped, text);
+            return String.format("%s %s %3d%%  %s", themedIcon(state, runningIcon), bar, clamped, text);
         }
         String bar = asciiBar(clamped, barSize, state);
         return String.format("[%s] %3d%%  %s", bar, clamped, text);
@@ -92,9 +96,9 @@ public class PercentageBar {
         };
     }
 
-    private String themedIcon(State state) {
+    private String themedIcon(State state, String runningIcon) {
         return switch (state) {
-            case RUNNING -> theme.warning(symbols.activeDot());
+            case RUNNING -> theme.warning(runningIcon);
             case DONE -> theme.success(symbols.ok());
             case FAILED -> theme.failure(symbols.fail());
         };
