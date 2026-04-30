@@ -52,6 +52,9 @@ public class CommandRunner {
                     yield new Result.Failure<>(result);
                 }
             };
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CommandRunnerException(e);
         } catch (Exception e) {
             throw new CommandRunnerException(e);
         } finally {
@@ -90,12 +93,15 @@ public class CommandRunner {
         return call(() -> null, commandParameters);
     }
 
-    private <C> Result<C> processUntilCompleteOrTimeout(CommandParameters<C> commandParameters) {
+    private <C> Result<C> processUntilCompleteOrTimeout(CommandParameters<C> commandParameters) throws InterruptedException {
         Instant timeout = commandParameters.timeout() > 0
             ? Instant.now().plusSeconds(commandParameters.timeout())
             : Instant.MAX;
 
         while (true) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException();
+            }
             if (timeout.isBefore(Instant.now())) {
                 return new Result.Failure<>(null);
             }

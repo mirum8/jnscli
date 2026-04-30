@@ -21,11 +21,37 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CommandRunnerTest {
 
     @Test
-    void schedulerKeepsTickingWhenRunningThrows() throws IOException, InterruptedException {
+    void interruptedSleepDuringPollingPropagatesInterruptedException() throws IOException {
+        // given
+        CommandRunner runner = newRunner();
+        CountingProgressBar bar = new CountingProgressBar(20, false);
+        Thread mainThread = Thread.currentThread();
+        CommandParameters<Boolean> params = CommandParameters.<Boolean>builder()
+            .withProgressBar(bar)
+            .withCompletionChecker(() -> {
+                mainThread.interrupt();
+                return false;
+            })
+            .withSuccessWhen(value -> value)
+            .build();
+
+        // when / then
+        try {
+            assertThatThrownBy(() -> runner.call(() -> "started", params))
+                .isInstanceOf(CommandRunnerException.class)
+                .hasCauseInstanceOf(InterruptedException.class);
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void schedulerKeepsTickingWhenRunningThrows() throws IOException {
         // given
         CountDownLatch threeTicks = new CountDownLatch(3);
         CountingProgressBar bar = new CountingProgressBar(20, true, threeTicks);

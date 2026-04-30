@@ -1,8 +1,8 @@
 package com.github.mirum8.jnscli.exception;
 
-import com.github.mirum8.jnscli.jenkins.JenkinsAPIException;
 import com.github.mirum8.jnscli.shell.Messages;
 import org.jline.reader.UserInterruptException;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.shell.CommandNotFound;
 import org.springframework.shell.command.CommandExceptionResolver;
 import org.springframework.shell.command.CommandHandlingResult;
@@ -23,9 +23,10 @@ public class CustomExceptionResolver implements CommandExceptionResolver {
 
     @Override
     public CommandHandlingResult resolve(Exception ex) {
+        if (NestedExceptionUtils.getMostSpecificCause(ex) instanceof InterruptedException) {
+            return CommandHandlingResult.of("");
+        }
         return switch (ex) {
-            case JenkinsAPIException e when e.getCause() instanceof InterruptedException ->
-                CommandHandlingResult.of("Interrupted");
             case UserInterruptException ignored -> CommandHandlingResult.of("User interrupt\n");
             case CommandNotFound ignored -> CommandHandlingResult.of("Command not found. See 'jns help'\n");
             default -> {
