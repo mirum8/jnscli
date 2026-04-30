@@ -47,7 +47,7 @@ Each user-facing command lives in its own package and consists of two classes: a
 
 ### Shell I/O
 
-All terminal output goes through `shell/ShellPrinter`, prompts through `shell/ShellPrompter`, formatting helpers via `shell/TextFormatter` + `TextColor`. Don't `System.out.println` — it bypasses the renderer and breaks spinners. Multi-line live updates must go through `RefreshableMultilineRenderer`.
+All terminal output goes through `shell/ShellPrinter`, prompts through `shell/ShellPrompter`, formatting via `shell/Theme` + `Symbols` + `Messages` (default for status lines), structured blocks via `shell/Section`, tables via `shell/Table`. Don't `System.out.println` — it bypasses the renderer and breaks spinners. Multi-line live updates must go through `RefreshableMultilineRenderer`. **See [`ui-design.md`](ui-design.md) for the full UI pattern catalog and rules — read it before adding any new command output.**
 
 ### Build parameters
 
