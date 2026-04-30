@@ -35,6 +35,62 @@ class SymbolsTest {
     }
 
     @Test
+    void unicodeActiveDotGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(true));
+
+        assertThat(symbols.activeDot()).isEqualTo("●");
+    }
+
+    @Test
+    void asciiActiveDotGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(false));
+
+        assertThat(symbols.activeDot()).isEqualTo("*");
+    }
+
+    @Test
+    void unicodePendingGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(true));
+
+        assertThat(symbols.pending()).isEqualTo("○");
+    }
+
+    @Test
+    void asciiPendingGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(false));
+
+        assertThat(symbols.pending()).isEqualTo("o");
+    }
+
+    @Test
+    void unicodeEmptyMarkGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(true));
+
+        assertThat(symbols.emptyMark()).isEqualTo("—");
+    }
+
+    @Test
+    void asciiEmptyMarkGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(false));
+
+        assertThat(symbols.emptyMark()).isEqualTo("-");
+    }
+
+    @Test
+    void unicodeInfoGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(true));
+
+        assertThat(symbols.info()).isEqualTo("·");
+    }
+
+    @Test
+    void asciiInfoGlyph() {
+        Symbols symbols = new Symbols(capsUnicode(false));
+
+        assertThat(symbols.info()).isEqualTo(".");
+    }
+
+    @Test
     void brailleSpinnerFramesWhenUnicodeSupported() {
         Symbols symbols = new Symbols(capsUnicode(true));
 

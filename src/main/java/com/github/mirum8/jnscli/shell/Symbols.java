@@ -45,6 +45,22 @@ public class Symbols {
         return caps.supportsUnicode() ? "•" : "*";
     }
 
+    public String activeDot() {
+        return caps.supportsUnicode() ? "●" : "*";
+    }
+
+    public String pending() {
+        return caps.supportsUnicode() ? "○" : "o";
+    }
+
+    public String emptyMark() {
+        return caps.supportsUnicode() ? "—" : "-";
+    }
+
+    public String info() {
+        return caps.supportsUnicode() ? "·" : ".";
+    }
+
     public String folder() {
         return caps.supportsUnicode() ? "▸" : "[/]";
     }
