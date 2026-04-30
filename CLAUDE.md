@@ -68,5 +68,11 @@ Because the shipping artifact is a native image:
 
 ### After Task Completion (don't ask for confirmations, just do)
 
-- You MUST run `find-bugs` on the diff, then `/simplify`, `/security-review`, and `/sonar` — fix every issue each one
-  reports. Never skip these steps. Run without confirmation.
+After finishing any code change, run these four steps **in order, in the same turn, without stopping or asking for confirmation between them**. Fix every issue each one reports before moving to the next.
+
+1. `find-bugs` on the diff
+2. `/simplify`
+3. `/security-review`
+4. `/sonar`
+
+The completion of one step is **not** the end of the turn — it is the trigger for the next step. Do not yield control back to the user between steps. The workflow is one atomic unit; the turn ends only after step 4 finishes and its findings are fixed. If you catch yourself about to end the turn before step 4 has run, invoke the next step instead.
