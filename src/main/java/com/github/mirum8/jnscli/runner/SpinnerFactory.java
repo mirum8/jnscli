@@ -1,24 +1,24 @@
 package com.github.mirum8.jnscli.runner;
 
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.Symbols;
-import com.github.mirum8.jnscli.shell.Theme;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SpinnerFactory {
-    private final Theme theme;
     private final Symbols symbols;
+    private final Messages messages;
 
-    public SpinnerFactory(Theme theme, Symbols symbols) {
-        this.theme = theme;
+    public SpinnerFactory(Symbols symbols, Messages messages) {
         this.symbols = symbols;
+        this.messages = messages;
     }
 
     public Spinner.Builder builder() {
-        return new Spinner.Builder(theme, symbols);
+        return new Spinner.Builder(symbols, messages);
     }
 
     public Spinner.Builder builder(String runningMessage) {
-        return new Spinner.Builder(theme, symbols).runningMessage(runningMessage);
+        return new Spinner.Builder(symbols, messages).runningMessage(runningMessage);
     }
 }
