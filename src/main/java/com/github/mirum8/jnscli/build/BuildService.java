@@ -13,10 +13,13 @@ import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.runner.SpinnerFactory;
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
 import com.github.mirum8.jnscli.shell.Symbols;
+import com.github.mirum8.jnscli.shell.TerminalCapabilities;
 import com.github.mirum8.jnscli.shell.Theme;
+import com.github.mirum8.jnscli.util.StatusFormatter;
 import com.github.mirum8.jnscli.util.Threads;
 import org.springframework.stereotype.Service;
 
@@ -35,9 +38,9 @@ class BuildService {
     public static final String NOT_ABORT = "Do not abort. Start new build";
     public static final String ABORT_ALL = "Abort all. Start new build";
     public static final String CANCEL_BUILD = "Cancel new build";
-    public static final String FINISHED_PREFIX = "Finished: ";
 
     private final ShellPrinter shellPrinter;
+    private final Messages messages;
     private final JenkinsAPI jenkinsAPI;
     private final ShellPrompter shellPrompter;
     private final AbortService abortService;
@@ -51,8 +54,11 @@ class BuildService {
     private final Theme theme;
     private final Symbols symbols;
     private final PercentageBar percentageBar;
+    private final TerminalCapabilities terminalCapabilities;
+    private final StatusFormatter statusFormatter;
 
     BuildService(ShellPrinter shellPrinter,
+                 Messages messages,
                  JenkinsAPI jenkinsAPI,
                  ShellPrompter shellPrompter,
                  AbortService abortService,
@@ -65,8 +71,11 @@ class BuildService {
                  SpinnerFactory spinnerFactory,
                  Theme theme,
                  Symbols symbols,
-                 PercentageBar percentageBar) {
+                 PercentageBar percentageBar,
+                 TerminalCapabilities terminalCapabilities,
+                 StatusFormatter statusFormatter) {
         this.shellPrinter = shellPrinter;
+        this.messages = messages;
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrompter = shellPrompter;
         this.abortService = abortService;
@@ -80,6 +89,8 @@ class BuildService {
         this.theme = theme;
         this.symbols = symbols;
         this.percentageBar = percentageBar;
+        this.terminalCapabilities = terminalCapabilities;
+        this.statusFormatter = statusFormatter;
     }
 
     void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi, boolean useDefaults) {
@@ -93,7 +104,7 @@ class BuildService {
         }
 
         if (askWhetherToAbortPreviousBuild(job).equals(CANCEL_BUILD)) {
-            shellPrinter.println("Build cancelled");
+            messages.info("Build cancelled");
             return;
         }
 
@@ -113,25 +124,25 @@ class BuildService {
         int buildNumber = workflowJob.nextBuildNumber();
         if (result instanceof Result.Failure) {
             shellPrinter.println(getErrorMessage(job, buildNumber, useAi));
-            shellPrinter.println(FINISHED_PREFIX + jenkinsAPI.getJobBuildInfo(job.url(), buildNumber).status().name());
+            messages.failure("Build #" + buildNumber + " " + statusFormatter.colored(jenkinsAPI.getJobBuildInfo(job.url(), buildNumber).status()));
             return;
         }
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
                 commandRunner.showProgress(CommandParameters.<BuildInfo>builder()
-                    .withProgressBar(new BuildProgressBar(pipelineAPI, percentageBar, job.url(), buildNumber))
+                    .withProgressBar(new BuildProgressBar(pipelineAPI, percentageBar, terminalCapabilities, theme, symbols, job.url(), buildNumber))
                     .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
                     .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
                     .withFailureWhen(buildInfo -> buildInfo.status() == FAILED || buildInfo.status() == FAILURE || buildInfo.status() == ABORTED)
-                    .onSuccess(ignored -> FINISHED_PREFIX + theme.success(SUCCESS.name()))
+                    .onSuccess(ignored -> messages.successText("Build #" + buildNumber + " " + statusFormatter.colored(SUCCESS)))
                     .onFailure(ignored -> getErrorMessage(job, buildNumber, useAi))
                     .build());
             } else {
                 commandRunner.showProgress(CommandParameters.<WorkflowJob>builder()
                     .withProgressBar(spinnerFactory.builder()
                         .runningMessage("Job " + job.name() + " is running")
-                        .completeMessage(FINISHED_PREFIX + theme.success(SUCCESS.name()))
-                        .errorMessage(FINISHED_PREFIX + theme.failure(FAILED.name()) + "\nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
+                        .completeMessage("Job " + job.name() + " " + statusFormatter.colored(SUCCESS))
+                        .errorMessage("Job " + job.name() + " " + statusFormatter.colored(FAILED) + "\nCheck logs: " + job.url() + "/" + workflowJob.lastBuild() + "/console")
                         .build()
                     )
                     .withCompletionChecker(() -> jenkinsAPI.getWorkflowJob(job.url()))
@@ -249,7 +260,7 @@ class BuildService {
             .withCompletionChecker(() -> jenkinsAPI.getQueueItem(queueItemLocation.url()))
             .withSuccessWhen(queueItem -> queueItem != null && QueueItemType.LEFT_ITEM == queueItem.type())
             .withTimeout(90)
-            .onTimeoutError(() -> theme.failure(symbols.fail()) + " Job " + job.name() + " failed to start.")
+            .onTimeoutError(() -> messages.failureText("Job " + job.name() + " failed to start."))
             .build());
     }
 

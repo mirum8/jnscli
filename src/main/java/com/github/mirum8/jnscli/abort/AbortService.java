@@ -9,20 +9,20 @@ import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.SpinnerFactory;
-import com.github.mirum8.jnscli.shell.ShellPrinter;
+import com.github.mirum8.jnscli.shell.Messages;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AbortService {
     private final JenkinsAPI jenkinsAPI;
-    private final ShellPrinter shellPrinter;
+    private final Messages messages;
     private final CommandRunner commandRunner;
     private final JobDescriptorProvider jobDescriptorProvider;
     private final SpinnerFactory spinnerFactory;
 
-    public AbortService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, CommandRunner commandRunner, JobDescriptorProvider jobDescriptorProvider, SpinnerFactory spinnerFactory) {
+    public AbortService(JenkinsAPI jenkinsAPI, Messages messages, CommandRunner commandRunner, JobDescriptorProvider jobDescriptorProvider, SpinnerFactory spinnerFactory) {
         this.jenkinsAPI = jenkinsAPI;
-        this.shellPrinter = shellPrinter;
+        this.messages = messages;
         this.commandRunner = commandRunner;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.spinnerFactory = spinnerFactory;
@@ -34,7 +34,7 @@ public class AbortService {
 
         WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(job.url());
         if (!workflowJob.isRunning()) {
-            shellPrinter.println("Job " + jobId + " is not running");
+            messages.warning("Job " + jobId + " is not running");
             return;
         }
 
@@ -48,7 +48,7 @@ public class AbortService {
 
         WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(job.url());
         if (!workflowJob.isRunning()) {
-            shellPrinter.println("Job " + jobId + " is not running");
+            messages.warning("Job " + jobId + " is not running");
             return;
         }
 

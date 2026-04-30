@@ -7,6 +7,7 @@ import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.Section;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.Theme;
@@ -23,6 +24,7 @@ public class ErrorService {
     private final PipelineAPI pipelineAPI;
     private final SettingsService settingsService;
     private final ShellPrinter shellPrinter;
+    private final Messages messages;
     private final JobDescriptorProvider jobDescriptorProvider;
     private final CommandRunner commandRunner;
     private final Section section;
@@ -34,6 +36,7 @@ public class ErrorService {
                         PipelineAPI pipelineAPI,
                         SettingsService settingsService,
                         ShellPrinter shellPrinter,
+                        Messages messages,
                         JobDescriptorProvider jobDescriptorProvider,
                         CommandRunner commandRunner,
                         Section section,
@@ -44,6 +47,7 @@ public class ErrorService {
         this.pipelineAPI = pipelineAPI;
         this.settingsService = settingsService;
         this.shellPrinter = shellPrinter;
+        this.messages = messages;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.commandRunner = commandRunner;
         this.section = section;
@@ -59,7 +63,7 @@ public class ErrorService {
         if (buildNumber != null) {
             buildInfo = jenkinsAPI.getJobBuildInfo(job.url(), buildNumber);
             if (buildInfo.status() == Status.SUCCESS) {
-                shellPrinter.println("Build " + buildNumber + " was successful.");
+                messages.info("Build " + buildNumber + " was successful.");
                 return;
             }
         } else if (myBuild) {
@@ -69,12 +73,12 @@ public class ErrorService {
         }
 
         if (buildInfo == null) {
-            shellPrinter.println("No build found for the given criteria.");
+            messages.empty("No build found for the given criteria.");
             return;
         }
 
         String header = section.builder()
-            .field("Build Number", String.valueOf(buildInfo.number()))
+            .header("Build #" + buildInfo.number())
             .field("Started By", buildInfo.startedBy().orElse("Unknown"))
             .field("Status", statusFormatter.colored(buildInfo.status()))
             .build();
@@ -83,7 +87,8 @@ public class ErrorService {
         String errors = commandRunner.callWithSpinner("Fetching errors", () -> getErrors(job, buildInfo.number())).value();
 
         if (errors.isEmpty()) {
-            shellPrinter.println("No errors found.");
+            messages.empty("No errors found.");
+            return;
         }
         String errorsText = useAi ? theme.accent("AI analysis: ") + aiService.analyzeLog(errors) : errors;
         shellPrinter.println(errorsText);

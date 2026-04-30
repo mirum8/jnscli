@@ -5,6 +5,7 @@ import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.runner.SpinnerFactory;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
 import org.springframework.stereotype.Component;
@@ -16,15 +17,17 @@ public class AiService {
     private final AiClientFactory aiClientFactory;
     private final AiSettingsPrompterFactory aiSettingsPrompterFactory;
     private final ShellPrinter shellPrinter;
+    private final Messages messages;
     private final CommandRunner commandRunner;
     private final SpinnerFactory spinnerFactory;
 
-    public AiService(SettingsService settingsService, ShellPrompter prompter, AiClientFactory aiClientFactory, AiSettingsPrompterFactory aiSettingsPrompterFactory, ShellPrinter shellPrinter, CommandRunner commandRunner, SpinnerFactory spinnerFactory) {
+    public AiService(SettingsService settingsService, ShellPrompter prompter, AiClientFactory aiClientFactory, AiSettingsPrompterFactory aiSettingsPrompterFactory, ShellPrinter shellPrinter, Messages messages, CommandRunner commandRunner, SpinnerFactory spinnerFactory) {
         this.settingsService = settingsService;
         this.prompter = prompter;
         this.aiClientFactory = aiClientFactory;
         this.aiSettingsPrompterFactory = aiSettingsPrompterFactory;
         this.shellPrinter = shellPrinter;
+        this.messages = messages;
         this.commandRunner = commandRunner;
         this.spinnerFactory = spinnerFactory;
     }
@@ -32,8 +35,8 @@ public class AiService {
     public void configure() {
         String provider = prompter.promptSelectFromList("Select AI provider", LlmSettings.supportedProviders());
         LlmSettings llmSettings = aiSettingsPrompterFactory.create(provider).promptSettings();
-        shellPrinter.println("Settings are saved.");
         settingsService.writeAiSettings(llmSettings);
+        messages.success("Settings are saved.");
     }
 
     public String analyzeLog(String log) {
@@ -68,7 +71,7 @@ public class AiService {
         switch (result) {
             case Result.Success<?>(Object value) -> shellPrinter.println("AI response: " + value);
             case Result.Failure<?> ignored ->
-                shellPrinter.println("AI settings not configured or test failed. Run 'ai configure' command.");
+                messages.failure("AI settings not configured or test failed. Run 'ai configure' command.");
         }
     }
 }

@@ -7,9 +7,8 @@ import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.SpinnerFactory;
 import com.github.mirum8.jnscli.settings.Settings;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
-import com.github.mirum8.jnscli.shell.Symbols;
-import com.github.mirum8.jnscli.shell.Theme;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -19,17 +18,15 @@ class ConnectService {
     private final CommandRunner commandRunner;
     private final SettingsService settingsService;
     private final SpinnerFactory spinnerFactory;
-    private final Theme theme;
-    private final Symbols symbols;
+    private final Messages messages;
 
-    ConnectService(ShellPrompter shellPrompter, JenkinsAPI jenkinsAPI, CommandRunner commandRunner, SettingsService settingsService, SpinnerFactory spinnerFactory, Theme theme, Symbols symbols) {
+    ConnectService(ShellPrompter shellPrompter, JenkinsAPI jenkinsAPI, CommandRunner commandRunner, SettingsService settingsService, SpinnerFactory spinnerFactory, Messages messages) {
         this.shellPrompter = shellPrompter;
         this.jenkinsAPI = jenkinsAPI;
         this.commandRunner = commandRunner;
         this.settingsService = settingsService;
         this.spinnerFactory = spinnerFactory;
-        this.theme = theme;
-        this.symbols = symbols;
+        this.messages = messages;
     }
 
     public void connect() {
@@ -45,8 +42,8 @@ class ConnectService {
             .withCompletionChecker(() -> jenkinsAPI.checkConnection(settings))
             .withSuccessWhen(CheckConnectionResult::isSuccess)
             .withFailureWhen(CheckConnectionResult::isFailure)
-            .onSuccess(ignored -> theme.success(symbols.ok()) + " Connection established successfully")
-            .onFailure(result -> theme.failure(symbols.fail()) + " Connection failed: " + result.message())
+            .onSuccess(ignored -> messages.successText("Connection established successfully"))
+            .onFailure(result -> messages.failureText("Connection failed: " + result.message()))
             .withTimeout(30)
             .build());
     }

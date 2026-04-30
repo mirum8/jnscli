@@ -1,6 +1,7 @@
 package com.github.mirum8.jnscli.exception;
 
 import com.github.mirum8.jnscli.jenkins.JenkinsAPIException;
+import com.github.mirum8.jnscli.shell.Messages;
 import org.jline.reader.UserInterruptException;
 import org.springframework.shell.CommandNotFound;
 import org.springframework.shell.command.CommandExceptionResolver;
@@ -14,6 +15,12 @@ import java.util.logging.Logger;
 public class CustomExceptionResolver implements CommandExceptionResolver {
     private static final Logger log = Logger.getLogger(CustomExceptionResolver.class.getName());
 
+    private final Messages messages;
+
+    public CustomExceptionResolver(Messages messages) {
+        this.messages = messages;
+    }
+
     @Override
     public CommandHandlingResult resolve(Exception ex) {
         return switch (ex) {
@@ -23,7 +30,8 @@ public class CustomExceptionResolver implements CommandExceptionResolver {
             case CommandNotFound ignored -> CommandHandlingResult.of("Command not found. See 'jns help'\n");
             default -> {
                 log.severe(() -> "Error: " + Arrays.toString(ex.getStackTrace()));
-                yield CommandHandlingResult.of("Error: " + ex.getMessage(), 1);
+                String message = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
+                yield CommandHandlingResult.of(messages.failureText(message) + "\n", 1);
             }
         };
     }

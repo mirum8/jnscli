@@ -6,6 +6,7 @@ import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.Section;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.util.StatusFormatter;
@@ -23,6 +24,7 @@ public class InfoService {
 
     private final JenkinsAPI jenkinsAPI;
     private final ShellPrinter shellPrinter;
+    private final Messages messages;
     private final JobDescriptorProvider jobDescriptorProvider;
     private final String userName;
     private final PipelineAPI pipelineAPI;
@@ -30,9 +32,10 @@ public class InfoService {
     private final Section section;
     private final StatusFormatter statusFormatter;
 
-    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner, Section section, StatusFormatter statusFormatter) {
+    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, Messages messages, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner, Section section, StatusFormatter statusFormatter) {
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
+        this.messages = messages;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.userName = settingsService.readSettings().username();
         this.pipelineAPI = pipelineAPI;
@@ -94,7 +97,7 @@ public class InfoService {
 
         Section.Builder b = section.builder().header("Last builds");
         if (filteredBuilds.isEmpty()) {
-            b.line("  No builds found.");
+            b.line(messages.emptyText("No builds found."));
         } else {
             for (RunWithBuildInfo filteredBuild : filteredBuilds) {
                 b.divider();
@@ -127,9 +130,9 @@ public class InfoService {
     private void appendBuildSummary(Section.Builder b, Build run, BuildInfo build) {
         b.header("Build " + build.displayName())
             .field("Status", statusFormatter.colored(run.status()))
-            .field("StartedAt", formatTimestamp(build.timestamp()))
+            .field("Started At", formatTimestamp(build.timestamp()))
             .field("Duration", formatDuration(build.duration()));
-        build.startedBy().ifPresent(startedBy -> b.field("StartedBy", startedBy));
+        build.startedBy().ifPresent(startedBy -> b.field("Started By", startedBy));
         if (!build.parameters().isEmpty()) {
             build.parameters().forEach(parameter -> b.field(parameter.name(), parameter.value()));
         }
@@ -180,7 +183,7 @@ public class InfoService {
 
         Section.Builder b = section.builder().header("Last builds");
         if (filteredBuilds.isEmpty()) {
-            b.line("  No builds found.");
+            b.line(messages.emptyText("No builds found."));
         } else {
             for (BuildInfo filteredBuild : filteredBuilds) {
                 b.divider();

@@ -3,9 +3,8 @@ package com.github.mirum8.jnscli.ai;
 import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.SpinnerFactory;
+import com.github.mirum8.jnscli.shell.Messages;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
-import com.github.mirum8.jnscli.shell.Symbols;
-import com.github.mirum8.jnscli.shell.Theme;
 import io.github.ollama4j.Ollama;
 import io.github.ollama4j.exceptions.OllamaException;
 import io.github.ollama4j.models.response.Model;
@@ -22,17 +21,15 @@ public class OllamaSettingsPrompter implements AiSettingsPrompter {
     private final ShellPrompter prompter;
     private final CommandRunner commandRunner;
     private final SpinnerFactory spinnerFactory;
-    private final Theme theme;
-    private final Symbols symbols;
+    private final Messages messages;
 
     private final Set<String> recommendedModels = Set.of(PHI, LLAMA);
 
-    public OllamaSettingsPrompter(ShellPrompter prompter, CommandRunner commandRunner, SpinnerFactory spinnerFactory, Theme theme, Symbols symbols) {
+    public OllamaSettingsPrompter(ShellPrompter prompter, CommandRunner commandRunner, SpinnerFactory spinnerFactory, Messages messages) {
         this.prompter = prompter;
         this.commandRunner = commandRunner;
         this.spinnerFactory = spinnerFactory;
-        this.theme = theme;
-        this.symbols = symbols;
+        this.messages = messages;
     }
 
     @Override
@@ -60,8 +57,8 @@ public class OllamaSettingsPrompter implements AiSettingsPrompter {
         String selected = prompter.promptSelectFromList("Please choose a model for downloading", List.of(LLAMA + ":latest", PHI + ":latest"));
         commandRunner.run(() -> pullModel(ollamaAPI, selected), CommandParameters.builder()
             .withProgressBar(spinnerFactory.builder("Pulling " + selected).build())
-            .onSuccess(ignored -> theme.success(symbols.ok()) + " The model has been successfully downloaded")
-            .onFailure(ignored -> theme.failure(symbols.fail()) + " Failed to download the model")
+            .onSuccess(ignored -> messages.successText("The model has been successfully downloaded"))
+            .onFailure(ignored -> messages.failureText("Failed to download the model"))
             .build());
         return selected;
     }
