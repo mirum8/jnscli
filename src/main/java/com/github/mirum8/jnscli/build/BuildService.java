@@ -128,7 +128,7 @@ class BuildService {
         if (progress && !showLog) {
             if (job.type() == JobType.WORKFLOW) {
                 commandRunner.showProgress(CommandParameters.<BuildInfo>builder()
-                    .withProgressBar(new BuildProgressBar(pipelineAPI, percentageBar, terminalCapabilities, theme, symbols, job.url(), buildNumber))
+                    .withProgressBar(new BuildProgressBar(pipelineAPI, jenkinsAPI, percentageBar, terminalCapabilities, theme, symbols, job.url(), buildNumber))
                     .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
                     .withSuccessWhen(buildInfo -> buildInfo.status() == Status.SUCCESS)
                     .withFailureWhen(buildInfo -> buildInfo.status() == FAILED || buildInfo.status() == FAILURE || buildInfo.status() == ABORTED)

@@ -1,5 +1,6 @@
 package com.github.mirum8.jnscli.build;
 
+import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.PipelineAPI;
 import com.github.mirum8.jnscli.jenkins.WorkflowRun;
 import com.github.mirum8.jnscli.runner.ProgressBar;
@@ -33,12 +34,13 @@ public class BuildProgressBar implements ProgressBar {
     private final String jobUrl;
     private final int buildNumber;
     private final char[] spinnerFrames;
+    private final BuildFooter footer;
     private List<WorkflowRun.Stage> previousBuildStages;
     private WorkflowRun latestRun;
     private long latestRunFetchedAtMillis;
     private int spinCounter;
 
-    public BuildProgressBar(PipelineAPI pipelineAPI, PercentageBar percentageBar,
+    public BuildProgressBar(PipelineAPI pipelineAPI, JenkinsAPI jenkinsAPI, PercentageBar percentageBar,
                             TerminalCapabilities caps, Theme theme, Symbols symbols,
                             String jobUrl, int buildNumber) {
         this.pipelineAPI = pipelineAPI;
@@ -49,6 +51,7 @@ public class BuildProgressBar implements ProgressBar {
         this.jobUrl = jobUrl;
         this.buildNumber = buildNumber;
         this.spinnerFrames = symbols.spinnerFrames();
+        this.footer = new BuildFooter(pipelineAPI, jenkinsAPI, caps, theme, jobUrl, buildNumber, this::currentTimeMillis);
     }
 
     @Override
@@ -109,6 +112,8 @@ public class BuildProgressBar implements ProgressBar {
         if (!pending.isEmpty()) {
             lines.add(pendingLine(pending, pendingSuffix));
         }
+        footer.refresh(run);
+        lines.addAll(footer.render());
         return lines;
     }
 

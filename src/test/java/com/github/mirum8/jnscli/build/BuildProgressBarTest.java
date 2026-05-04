@@ -1,12 +1,15 @@
 package com.github.mirum8.jnscli.build;
 
+import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.PipelineAPI;
+import com.github.mirum8.jnscli.jenkins.ProgressiveConsoleText;
 import com.github.mirum8.jnscli.jenkins.Status;
 import com.github.mirum8.jnscli.jenkins.WorkflowRun;
 import com.github.mirum8.jnscli.shell.Symbols;
 import com.github.mirum8.jnscli.shell.TestCapabilities;
 import com.github.mirum8.jnscli.shell.Theme;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -86,10 +89,12 @@ class BuildProgressBarTest {
 
         List<String> actual = bar.running();
 
-        assertThat(actual).hasSize(3);
+        assertThat(actual).hasSize(5);
         assertThat(actual.get(0)).contains("1 stage completed");
         assertThat(actual.get(1)).contains("test");
         assertThat(actual.get(2)).contains("deploy").contains("(pending)");
+        assertThat(actual.get(3)).isEmpty();
+        assertThat(actual.get(4)).contains("test");
     }
 
     @Test
@@ -104,9 +109,11 @@ class BuildProgressBarTest {
 
         List<String> actual = bar.running();
 
-        assertThat(actual).hasSize(2);
+        assertThat(actual).hasSize(4);
         assertThat(actual.get(0)).contains("1 stage completed");
         assertThat(actual.get(1)).contains("test");
+        assertThat(actual.get(2)).isEmpty();
+        assertThat(actual.get(3)).contains("test");
     }
 
     @Test
@@ -144,7 +151,6 @@ class BuildProgressBarTest {
 
         List<String> actual = bar.running();
 
-        assertThat(actual).hasSize(1);
         assertThat(actual.getFirst().codePoints()).anyMatch(c -> "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏".indexOf(c) >= 0);
     }
 
@@ -223,14 +229,14 @@ class BuildProgressBarTest {
         var caps = TestCapabilities.disabled();
         var theme = new Theme(caps);
         var symbols = new Symbols(caps);
-        return new BuildProgressBar(pipelineAPI, new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n);
+        return new BuildProgressBar(pipelineAPI, quietJenkinsAPI(), new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n);
     }
 
     private static BuildProgressBar unicodeBuildProgressBar(PipelineAPI pipelineAPI, String url, int n) {
         var caps = TestCapabilities.unicode(true);
         var theme = new Theme(caps);
         var symbols = new Symbols(caps);
-        return new BuildProgressBar(pipelineAPI, new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n);
+        return new BuildProgressBar(pipelineAPI, quietJenkinsAPI(), new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n);
     }
 
     private static BuildProgressBar clockedBuildProgressBar(PipelineAPI pipelineAPI, String url, int n,
@@ -238,12 +244,19 @@ class BuildProgressBarTest {
         var caps = TestCapabilities.unicode(true);
         var theme = new Theme(caps);
         var symbols = new Symbols(caps);
-        return new BuildProgressBar(pipelineAPI, new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n) {
+        return new BuildProgressBar(pipelineAPI, quietJenkinsAPI(), new PercentageBar(caps, theme, symbols), caps, theme, symbols, url, n) {
             @Override
             long currentTimeMillis() {
                 return clock.getAsLong();
             }
         };
+    }
+
+    private static JenkinsAPI quietJenkinsAPI() {
+        JenkinsAPI api = mock(JenkinsAPI.class);
+        when(api.getProgressiveConsoleText(ArgumentMatchers.anyString(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyLong()))
+            .thenReturn(new ProgressiveConsoleText("", false, 0L));
+        return api;
     }
 
     private static String extractFirstChar(String line) {
