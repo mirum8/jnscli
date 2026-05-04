@@ -7,7 +7,9 @@ import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.JsonOutput;
 import com.github.mirum8.jnscli.shell.Messages;
+import com.github.mirum8.jnscli.shell.OutputContext;
 import com.github.mirum8.jnscli.shell.Section;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.Theme;
@@ -30,6 +32,8 @@ public class ErrorService {
     private final Section section;
     private final Theme theme;
     private final StatusFormatter statusFormatter;
+    private final OutputContext outputContext;
+    private final JsonOutput jsonOutput;
 
     public ErrorService(AiService aiService,
                         JenkinsAPI jenkinsAPI,
@@ -41,7 +45,9 @@ public class ErrorService {
                         CommandRunner commandRunner,
                         Section section,
                         Theme theme,
-                        StatusFormatter statusFormatter) {
+                        StatusFormatter statusFormatter,
+                        OutputContext outputContext,
+                        JsonOutput jsonOutput) {
         this.aiService = aiService;
         this.jenkinsAPI = jenkinsAPI;
         this.pipelineAPI = pipelineAPI;
@@ -53,30 +59,55 @@ public class ErrorService {
         this.section = section;
         this.theme = theme;
         this.statusFormatter = statusFormatter;
+        this.outputContext = outputContext;
+        this.jsonOutput = jsonOutput;
+    }
+
+    public record ErrorJson(int buildNumber, String status, String startedBy, String errors, String aiAnalysis) {
     }
 
     public void getError(String jobId, Integer buildNumber, boolean myBuild, boolean useAi) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
-        BuildInfo buildInfo;
-        if (buildNumber != null) {
-            buildInfo = jenkinsAPI.getJobBuildInfo(job.url(), buildNumber);
-            if (buildInfo.status() == Status.SUCCESS) {
-                messages.info("Build " + buildNumber + " was successful.");
-                return;
-            }
-        } else if (myBuild) {
-            buildInfo = findLatestBuildByCurrentUser(job);
-        } else {
-            buildInfo = findLastFailedBuild(job);
+        if (outputContext.isJson()) {
+            getErrorJson(job, buildNumber, myBuild, useAi);
+            return;
         }
+        getErrorText(job, buildNumber, myBuild, useAi);
+    }
 
+    private void getErrorJson(JobDescriptor job, Integer buildNumber, boolean myBuild, boolean useAi) {
+        BuildInfo buildInfo = resolveBuildInfo(job, buildNumber, myBuild);
+        if (buildInfo == null) {
+            jsonOutput.println(new ErrorJson(0, null, null, null, null));
+            return;
+        }
+        if (buildInfo.status() == Status.SUCCESS) {
+            jsonOutput.println(new ErrorJson(buildInfo.number(), Status.SUCCESS.name(),
+                buildInfo.startedBy().orElse(null), null, null));
+            return;
+        }
+        String errorsRaw = getErrors(job, buildInfo.number());
+        String analysis = (useAi && !errorsRaw.isEmpty()) ? aiService.analyzeLog(errorsRaw) : null;
+        jsonOutput.println(new ErrorJson(
+            buildInfo.number(),
+            buildInfo.status() == null ? null : buildInfo.status().name(),
+            buildInfo.startedBy().orElse(null),
+            errorsRaw.isEmpty() ? null : errorsRaw,
+            analysis));
+    }
+
+    private void getErrorText(JobDescriptor job, Integer buildNumber, boolean myBuild, boolean useAi) {
+        BuildInfo buildInfo = resolveBuildInfo(job, buildNumber, myBuild);
         if (buildInfo == null) {
             messages.empty("No build found for the given criteria.");
             return;
         }
-
+        if (buildInfo.status() == Status.SUCCESS) {
+            messages.info("Build " + buildInfo.number() + " was successful.");
+            return;
+        }
         String header = section.builder()
             .header("Build #" + buildInfo.number())
             .field("Started By", buildInfo.startedBy().orElse("Unknown"))
@@ -85,13 +116,19 @@ public class ErrorService {
         shellPrinter.println(header);
 
         String errors = commandRunner.callWithSpinner("Fetching errors", () -> getErrors(job, buildInfo.number())).value();
-
         if (errors.isEmpty()) {
             messages.empty("No errors found.");
             return;
         }
         String errorsText = useAi ? theme.accent("AI analysis: ") + aiService.analyzeLog(errors) : errors;
         shellPrinter.println(errorsText);
+    }
+
+    private BuildInfo resolveBuildInfo(JobDescriptor job, Integer buildNumber, boolean myBuild) {
+        if (buildNumber != null) {
+            return jenkinsAPI.getJobBuildInfo(job.url(), buildNumber);
+        }
+        return myBuild ? findLatestBuildByCurrentUser(job) : findLastFailedBuild(job);
     }
 
     private BuildInfo findLatestBuildByCurrentUser(JobDescriptor job) {

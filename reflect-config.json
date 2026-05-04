@@ -1,5 +1,35 @@
 [
   {
+    "name": "com.github.mirum8.jnscli.list.ListService$JobJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.info.InfoService$JobInfoJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.info.InfoService$BuildJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.info.InfoService$ParameterJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.diagnose.ErrorService$ErrorJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.build.BuildService$BuildResultJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
     "name": "com.github.mirum8.jnscli.jenkins.ViewAll",
     "allPublicMethods": true,
     "allDeclaredConstructors": true

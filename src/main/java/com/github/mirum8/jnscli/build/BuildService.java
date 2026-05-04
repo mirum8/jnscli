@@ -13,7 +13,9 @@ import com.github.mirum8.jnscli.runner.CommandParameters;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.runner.SpinnerFactory;
+import com.github.mirum8.jnscli.shell.JsonOutput;
 import com.github.mirum8.jnscli.shell.Messages;
+import com.github.mirum8.jnscli.shell.OutputContext;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.ShellPrompter;
 import com.github.mirum8.jnscli.shell.Symbols;
@@ -56,6 +58,8 @@ class BuildService {
     private final PercentageBar percentageBar;
     private final TerminalCapabilities terminalCapabilities;
     private final StatusFormatter statusFormatter;
+    private final OutputContext outputContext;
+    private final JsonOutput jsonOutput;
 
     BuildService(ShellPrinter shellPrinter,
                  Messages messages,
@@ -73,7 +77,9 @@ class BuildService {
                  Symbols symbols,
                  PercentageBar percentageBar,
                  TerminalCapabilities terminalCapabilities,
-                 StatusFormatter statusFormatter) {
+                 StatusFormatter statusFormatter,
+                 OutputContext outputContext,
+                 JsonOutput jsonOutput) {
         this.shellPrinter = shellPrinter;
         this.messages = messages;
         this.jenkinsAPI = jenkinsAPI;
@@ -91,9 +97,19 @@ class BuildService {
         this.percentageBar = percentageBar;
         this.terminalCapabilities = terminalCapabilities;
         this.statusFormatter = statusFormatter;
+        this.outputContext = outputContext;
+        this.jsonOutput = jsonOutput;
+    }
+
+    public record BuildResultJson(String job, int buildNumber, String status, String url, String errors, String aiAnalysis) {
     }
 
     void build(String jobId, boolean progress, boolean showLog, List<String> parameters, boolean useAi, boolean useDefaults) {
+        if (outputContext.isJson()) {
+            buildJson(jobId, parameters, useDefaults, useAi);
+            return;
+        }
+
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
@@ -152,6 +168,58 @@ class BuildService {
         if (showLog) {
             showConsoleText(job.url(), buildNumber);
         }
+    }
+
+    private void buildJson(String jobId, List<String> parameters, boolean useDefaults, boolean useAi) {
+        JobDescriptor job = jobDescriptorProvider.get(jobId)
+            .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
+        WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(job.url());
+        if (!workflowJob.buildable()) {
+            throw new IllegalArgumentException("The job is not buildable");
+        }
+        Map<String, String> filledParameters = parameterService.prompt(workflowJob, parameters, useDefaults);
+        int buildNumber = workflowJob.nextBuildNumber();
+        Result<Void> startResult = workflowJob.property().stream()
+            .map(WorkflowJob.Property::parameterDefinitions)
+            .filter(Objects::nonNull)
+            .flatMap(List::stream)
+            .filter(pd -> pd.type().equals("FileParameterDefinition"))
+            .findFirst()
+            .map(pd -> startJobWithFile(job, filledParameters, pd))
+            .orElseGet(() -> startJob(job, filledParameters));
+
+        if (startResult instanceof Result.Failure) {
+            BuildInfo failedInfo = jenkinsAPI.getJobBuildInfo(job.url(), buildNumber);
+            emitBuildJson(job, buildNumber, failedInfo.status(), useAi);
+            return;
+        }
+
+        if (job.type() == JobType.WORKFLOW) {
+            commandRunner.showProgress(CommandParameters.<BuildInfo>builder()
+                .withProgressBar(spinnerFactory.builder().runningMessage("running").build())
+                .withCompletionChecker(() -> jenkinsAPI.getJobBuildInfo(job.url(), buildNumber))
+                .withSuccessWhen(b -> b.status() == SUCCESS)
+                .withFailureWhen(b -> b.status() == FAILED || b.status() == FAILURE || b.status() == ABORTED)
+                .build());
+        } else {
+            commandRunner.showProgress(CommandParameters.<WorkflowJob>builder()
+                .withProgressBar(spinnerFactory.builder().runningMessage("running").build())
+                .withCompletionChecker(() -> jenkinsAPI.getWorkflowJob(job.url()))
+                .withSuccessWhen(wj -> "blue".equals(wj.color()))
+                .withFailureWhen(wj -> "red".equals(wj.color()) || "aborted".equals(wj.color()))
+                .build());
+        }
+
+        BuildInfo finalInfo = jenkinsAPI.getJobBuildInfo(job.url(), buildNumber);
+        emitBuildJson(job, buildNumber, finalInfo.status(), useAi);
+    }
+
+    private void emitBuildJson(JobDescriptor job, int buildNumber, Status status, boolean useAi) {
+        String errors = status != SUCCESS ? errorService.getErrors(job, buildNumber) : null;
+        String analysis = (useAi && errors != null && !errors.isEmpty()) ? aiService.analyzeLog(errors) : null;
+        jsonOutput.println(new BuildResultJson(job.name(), buildNumber,
+            status == null ? null : status.name(),
+            job.url() + "/" + buildNumber, errors, analysis));
     }
 
     private String askWhetherToAbortPreviousBuild(JobDescriptor job) {

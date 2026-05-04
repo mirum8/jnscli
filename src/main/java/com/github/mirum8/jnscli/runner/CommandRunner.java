@@ -1,5 +1,6 @@
 package com.github.mirum8.jnscli.runner;
 
+import com.github.mirum8.jnscli.shell.OutputContext;
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
 import com.github.mirum8.jnscli.util.Threads;
 import org.slf4j.Logger;
@@ -7,9 +8,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -20,23 +23,24 @@ public class CommandRunner {
 
     private final RefreshableMultilineRenderer refreshableMultilineRenderer;
     private final SpinnerFactory spinnerFactory;
+    private final OutputContext outputContext;
 
-    public CommandRunner(RefreshableMultilineRenderer refreshableMultilineRenderer, SpinnerFactory spinnerFactory) {
+    public CommandRunner(RefreshableMultilineRenderer refreshableMultilineRenderer,
+                         SpinnerFactory spinnerFactory,
+                         OutputContext outputContext) {
         this.refreshableMultilineRenderer = refreshableMultilineRenderer;
         this.spinnerFactory = spinnerFactory;
+        this.outputContext = outputContext;
     }
 
     public <C, R> Result<R> call(Callable<R> operation, CommandParameters<C> commandParameters) {
         try (var progressBarExecutor = Executors.newScheduledThreadPool(0, Thread.ofVirtual().factory())) {
-            progressBarExecutor.scheduleWithFixedDelay(() -> {
-                try {
-                    refreshableMultilineRenderer.render(commandParameters.progressBar().running());
-                } catch (Exception e) {
-                    log.warn("Progress bar tick failed; will retry on next interval", e);
-                }
-            }, 0, commandParameters.progressBar().refreshIntervalMillis(), TimeUnit.MILLISECONDS);
+            ScheduledFuture<?> tickHandle = scheduleTicks(progressBarExecutor, commandParameters);
             R result = operation.call();
             Result<C> chekingResult = processUntilCompleteOrTimeout(commandParameters);
+            if (tickHandle != null) {
+                tickHandle.cancel(false);
+            }
             drain(progressBarExecutor);
             return switch (chekingResult) {
                 case Result.Success<?>(Object value) -> {
@@ -60,6 +64,20 @@ public class CommandRunner {
         } finally {
             refreshableMultilineRenderer.reset();
         }
+    }
+
+    private <C> ScheduledFuture<?> scheduleTicks(ScheduledExecutorService executor, CommandParameters<C> params) {
+        if (suppressProgress()) {
+            renderQuiet(params.progressBar().running());
+            return null;
+        }
+        return executor.scheduleWithFixedDelay(() -> {
+            try {
+                refreshableMultilineRenderer.render(params.progressBar().running());
+            } catch (Exception e) {
+                log.warn("Progress bar tick failed; will retry on next interval", e);
+            }
+        }, 0, params.progressBar().refreshIntervalMillis(), TimeUnit.MILLISECONDS);
     }
 
     private static void drain(ScheduledExecutorService executor) {
@@ -117,20 +135,47 @@ public class CommandRunner {
     }
 
     private <C> void processFailure(CommandParameters<C> commandParameters, C checkResult) {
-        refreshableMultilineRenderer.render(commandParameters.progressBar().failed());
-        refreshableMultilineRenderer.reset();
-        refreshableMultilineRenderer.render(commandParameters.onFailure().apply(checkResult));
+        renderTerminal(commandParameters.progressBar().failed());
+        renderTerminal(commandParameters.onFailure().apply(checkResult));
     }
 
     private <C> void processSuccess(CommandParameters<C> commandParameters, C checkResult) {
-        refreshableMultilineRenderer.render(commandParameters.progressBar().completed());
-        refreshableMultilineRenderer.reset();
-        refreshableMultilineRenderer.render(commandParameters.onSuccess().apply(checkResult));
+        renderTerminal(commandParameters.progressBar().completed());
+        renderTerminal(commandParameters.onSuccess().apply(checkResult));
     }
 
     private void precessTimeout(CommandParameters<?> commandParameters) {
-        refreshableMultilineRenderer.render(commandParameters.progressBar().failed());
+        renderTerminal(commandParameters.progressBar().failed());
+        renderTerminal(commandParameters.timeoutMessage().get());
+    }
+
+    private void renderTerminal(List<String> lines) {
+        if (suppressProgress()) {
+            renderQuiet(lines);
+            return;
+        }
+        refreshableMultilineRenderer.render(lines);
         refreshableMultilineRenderer.reset();
-        refreshableMultilineRenderer.render(commandParameters.timeoutMessage().get());
+    }
+
+    private void renderTerminal(String text) {
+        if (suppressProgress()) {
+            if (text != null && !text.isEmpty()) {
+                refreshableMultilineRenderer.render(text);
+            }
+            return;
+        }
+        refreshableMultilineRenderer.render(text);
+    }
+
+    private void renderQuiet(List<String> lines) {
+        if (lines == null || lines.isEmpty() || outputContext.isJson()) {
+            return;
+        }
+        refreshableMultilineRenderer.render(lines);
+    }
+
+    private boolean suppressProgress() {
+        return outputContext != null && !outputContext.isRich();
     }
 }

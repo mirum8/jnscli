@@ -1,6 +1,8 @@
 package com.github.mirum8.jnscli.runner;
 
 import com.github.mirum8.jnscli.shell.Messages;
+import com.github.mirum8.jnscli.shell.OutputContext;
+import com.github.mirum8.jnscli.shell.OutputMode;
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.shell.Symbols;
@@ -107,7 +109,7 @@ class CommandRunnerTest {
         Symbols symbols = new Symbols(caps);
         Messages messages = new Messages(new ShellPrinter(terminal), new Theme(caps), symbols);
         SpinnerFactory factory = new SpinnerFactory(symbols, messages);
-        return new CommandRunner(renderer, factory);
+        return new CommandRunner(renderer, factory, new OutputContext(OutputMode.RICH));
     }
 
     private static final class CountingProgressBar implements ProgressBar {

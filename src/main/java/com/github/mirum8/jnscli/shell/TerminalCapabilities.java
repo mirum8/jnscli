@@ -9,12 +9,14 @@ public class TerminalCapabilities {
     private static final int FALLBACK_WIDTH = 80;
 
     private final Terminal terminal;
+    private final OutputContext outputContext;
     private Boolean ansi;
     private Boolean unicode;
     private Integer width;
 
-    public TerminalCapabilities(@Lazy Terminal terminal) {
+    public TerminalCapabilities(@Lazy Terminal terminal, OutputContext outputContext) {
         this.terminal = terminal;
+        this.outputContext = outputContext;
     }
 
     public int width() {
@@ -27,17 +29,23 @@ public class TerminalCapabilities {
 
     public boolean supportsAnsi() {
         if (ansi == null) {
-            String noColor = System.getenv("NO_COLOR");
-            if (noColor != null && !noColor.isEmpty()) {
-                ansi = false;
-            } else {
-                String term = System.getenv("TERM");
-                String jlineType = terminal.getType();
-                ansi = (term != null && !"dumb".equalsIgnoreCase(term))
-                    || (jlineType != null && !"dumb".equalsIgnoreCase(jlineType));
-            }
+            ansi = computeAnsi();
         }
         return ansi;
+    }
+
+    private boolean computeAnsi() {
+        if (outputContext != null && !outputContext.isRich()) {
+            return false;
+        }
+        String noColor = System.getenv("NO_COLOR");
+        if (noColor != null && !noColor.isEmpty()) {
+            return false;
+        }
+        String term = System.getenv("TERM");
+        String jlineType = terminal.getType();
+        return (term != null && !"dumb".equalsIgnoreCase(term))
+            || (jlineType != null && !"dumb".equalsIgnoreCase(jlineType));
     }
 
     public boolean supportsUnicode() {

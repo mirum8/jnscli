@@ -6,6 +6,8 @@ import com.github.mirum8.jnscli.context.JobsContext;
 import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.Job;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.shell.JsonOutput;
+import com.github.mirum8.jnscli.shell.OutputContext;
 import com.github.mirum8.jnscli.shell.RefreshableMultilineRenderer;
 import com.github.mirum8.jnscli.shell.Symbols;
 import com.github.mirum8.jnscli.shell.Theme;
@@ -23,6 +25,8 @@ public class ListService {
     private final JobDescriptorProvider jobDescriptorProvider;
     private final Theme theme;
     private final Symbols symbols;
+    private final OutputContext outputContext;
+    private final JsonOutput jsonOutput;
 
     public ListService(JenkinsAPI jenkinsAPI,
                        JobsContext jobsContext,
@@ -30,7 +34,9 @@ public class ListService {
                        RefreshableMultilineRenderer refreshableMultilineRenderer,
                        JobDescriptorProvider jobDescriptorProvider,
                        Theme theme,
-                       Symbols symbols) {
+                       Symbols symbols,
+                       OutputContext outputContext,
+                       JsonOutput jsonOutput) {
         this.jenkinsAPI = jenkinsAPI;
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.jobsContext = jobsContext;
@@ -38,6 +44,11 @@ public class ListService {
         this.refreshableMultilineRenderer = refreshableMultilineRenderer;
         this.theme = theme;
         this.symbols = symbols;
+        this.outputContext = outputContext;
+        this.jsonOutput = jsonOutput;
+    }
+
+    public record JobJson(int id, String name, String url, String type, String color) {
     }
 
     public void listJobs() {
@@ -60,6 +71,20 @@ public class ListService {
     }
 
     private void renderJobList(List<Job> jobs) {
+        if (outputContext.isJson()) {
+            List<JobJson> rows = jobs.stream()
+                .map(job -> new JobJson(
+                    jobsContext.findJobByName(job.name()).map(JobDescriptor::id).orElse(0),
+                    job.name(),
+                    job.url(),
+                    JobType.fromName(job.aClass()).name(),
+                    job.color()))
+                .sorted(Comparator.comparingInt(JobJson::id))
+                .toList();
+            jsonOutput.println(rows);
+            return;
+        }
+
         List<JobRow> jobRows = jobs.stream()
             .map(job -> JobRow.builder()
                 .id(jobsContext.findJobByName(job.name()).map(JobDescriptor::id).orElse(0))

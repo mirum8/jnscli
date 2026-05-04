@@ -1,12 +1,15 @@
 package com.github.mirum8.jnscli.info;
 
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
+import com.github.mirum8.jnscli.context.JobType;
 import com.github.mirum8.jnscli.jenkins.*;
 import com.github.mirum8.jnscli.model.JobDescriptor;
 import com.github.mirum8.jnscli.runner.CommandRunner;
 import com.github.mirum8.jnscli.runner.Result;
 import com.github.mirum8.jnscli.settings.SettingsService;
+import com.github.mirum8.jnscli.shell.JsonOutput;
 import com.github.mirum8.jnscli.shell.Messages;
+import com.github.mirum8.jnscli.shell.OutputContext;
 import com.github.mirum8.jnscli.shell.Section;
 import com.github.mirum8.jnscli.shell.ShellPrinter;
 import com.github.mirum8.jnscli.util.StatusFormatter;
@@ -31,8 +34,10 @@ public class InfoService {
     private final CommandRunner commandRunner;
     private final Section section;
     private final StatusFormatter statusFormatter;
+    private final OutputContext outputContext;
+    private final JsonOutput jsonOutput;
 
-    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, Messages messages, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner, Section section, StatusFormatter statusFormatter) {
+    public InfoService(JenkinsAPI jenkinsAPI, ShellPrinter shellPrinter, Messages messages, JobDescriptorProvider jobDescriptorProvider, SettingsService settingsService, PipelineAPI pipelineAPI, CommandRunner commandRunner, Section section, StatusFormatter statusFormatter, OutputContext outputContext, JsonOutput jsonOutput) {
         this.jenkinsAPI = jenkinsAPI;
         this.shellPrinter = shellPrinter;
         this.messages = messages;
@@ -42,6 +47,17 @@ public class InfoService {
         this.commandRunner = commandRunner;
         this.section = section;
         this.statusFormatter = statusFormatter;
+        this.outputContext = outputContext;
+        this.jsonOutput = jsonOutput;
+    }
+
+    public record JobInfoJson(String name, String url, String alias, String description, List<ParameterJson> parameters, List<BuildJson> builds) {
+    }
+
+    public record ParameterJson(String name, String defaultValue, String type) {
+    }
+
+    public record BuildJson(int number, String displayName, String status, long timestamp, long duration, String startedBy, String description, java.util.Map<String, String> parameters) {
     }
 
     public void info(String jobId,
@@ -52,6 +68,14 @@ public class InfoService {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
 
+        if (outputContext.isJson()) {
+            Set<Status> statuses = includeBuildStatuses(includeSuccess, includeFailed, includeRunning);
+            WorkflowJob workflowJob = jenkinsAPI.getWorkflowJob(job.url());
+            List<BuildJson> builds = collectBuildsJson(job, statuses, limit, onlyMyBuilds, workflowJob);
+            jsonOutput.println(toJobInfoJson(job, workflowJob, builds));
+            return;
+        }
+
         if (buildNumber != null) {
             Result<String> result = commandRunner.callWithSpinner("Fetching build info...", () -> fetchBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
             shellPrinter.println(result.value());
@@ -61,6 +85,60 @@ public class InfoService {
             Result<String> result = commandRunner.callWithSpinner("Fetching builds...", () -> fetchBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, workflowJobResult.value()));
             shellPrinter.println(result.value());
         }
+    }
+
+    private JobInfoJson toJobInfoJson(JobDescriptor job, WorkflowJob wj, List<BuildJson> builds) {
+        List<ParameterJson> params = wj.property() == null ? List.of() : wj.property().stream()
+            .map(WorkflowJob.Property::parameterDefinitions)
+            .filter(Objects::nonNull)
+            .flatMap(List::stream)
+            .map(this::toParameterJson)
+            .toList();
+        return new JobInfoJson(wj.name(), wj.url(), job.alias(), wj.description(), params, builds);
+    }
+
+    private ParameterJson toParameterJson(WorkflowJob.Property.ParameterDefinition p) {
+        String defaultValue = p.defaultParameterValue() == null ? null : p.defaultParameterValue().value();
+        return new ParameterJson(p.name(), defaultValue, p.type());
+    }
+
+    private List<BuildJson> collectBuildsJson(JobDescriptor job, Set<Status> statuses, int limit, boolean onlyMyBuilds, WorkflowJob wj) {
+        return switch (job.type()) {
+            case WORKFLOW -> pipelineAPI.getJobRuns(job.url()).stream()
+                .filter(run -> statuses.contains(run.status()))
+                .map(run -> jenkinsAPI.getJobBuildInfo(job.url(), run.id()))
+                .sorted(Comparator.<BuildInfo>comparingInt(BuildInfo::number).reversed())
+                .filter(b -> !onlyMyBuilds || b.startedBy().map(userName::equals).orElse(false))
+                .limit(limit)
+                .map(this::toBuildJson)
+                .toList();
+            case FREESTYLE -> {
+                WorkflowJob source = wj != null ? wj : jenkinsAPI.getWorkflowJob(job.url());
+                yield source.builds().stream()
+                    .sorted(Comparator.comparingInt(WorkflowJob.Build::number).reversed())
+                    .map(b -> jenkinsAPI.getJobBuildInfo(job.url(), b.number()))
+                    .filter(b -> statuses.contains(b.result()))
+                    .filter(b -> !onlyMyBuilds || b.startedBy().map(userName::equals).orElse(false))
+                    .limit(limit)
+                    .map(this::toBuildJson)
+                    .toList();
+            }
+            default -> List.of();
+        };
+    }
+
+    private BuildJson toBuildJson(BuildInfo b) {
+        java.util.Map<String, String> params = b.parameters().stream()
+            .collect(Collectors.toMap(BuildInfo.Action.Parameter::name, BuildInfo.Action.Parameter::value, (a, c) -> c, java.util.LinkedHashMap::new));
+        return new BuildJson(
+            b.number(),
+            b.displayName(),
+            b.result() == null ? null : b.result().name(),
+            b.timestamp() == null ? 0L : b.timestamp(),
+            b.duration() == null ? 0L : b.duration(),
+            b.startedBy().orElse(null),
+            b.description(),
+            params);
     }
 
     private Set<Status> includeBuildStatuses(boolean includeSuccess, boolean includeFailed, boolean includeRunning) {
@@ -159,6 +237,11 @@ public class InfoService {
     public void builds(String jobId, boolean includeSuccess, boolean includeFailed, boolean includeRunning, Integer limit, boolean onlyMyBuilds) {
         JobDescriptor job = jobDescriptorProvider.get(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job " + jobId + " not found"));
+        if (outputContext.isJson()) {
+            Set<Status> statuses = includeBuildStatuses(includeSuccess, includeFailed, includeRunning);
+            jsonOutput.println(collectBuildsJson(job, statuses, limit, onlyMyBuilds, null));
+            return;
+        }
         Result<String> result = commandRunner.callWithSpinner("Fetching builds...", () -> fetchBuildInfo(includeBuildStatuses(includeSuccess, includeFailed, includeRunning), limit, onlyMyBuilds, job, null));
         shellPrinter.println(result.value());
     }

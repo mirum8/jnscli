@@ -5,7 +5,7 @@ public final class TestCapabilities {
     }
 
     public static TerminalCapabilities of(int width, boolean ansi, boolean unicode) {
-        return new TerminalCapabilities(null) {
+        return new TerminalCapabilities(null, new OutputContext()) {
             @Override
             public int width() {
                 return width;
