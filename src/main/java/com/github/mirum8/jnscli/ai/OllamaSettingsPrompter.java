@@ -9,27 +9,26 @@ import io.github.ollama4j.Ollama;
 import io.github.ollama4j.exceptions.OllamaException;
 import io.github.ollama4j.models.response.Model;
 
-import java.util.List;
-import java.util.Set;
-
 import static com.github.mirum8.jnscli.ai.LlmSettings.Ollama.DEFAULT_ENDPOINT;
 
 public class OllamaSettingsPrompter implements AiSettingsPrompter {
-    private static final String PHI = "phi3.5";
-    private static final String LLAMA = "llama3.1";
 
     private final ShellPrompter prompter;
     private final CommandRunner commandRunner;
     private final SpinnerFactory spinnerFactory;
     private final Messages messages;
+    private final String model;
 
-    private final Set<String> recommendedModels = Set.of(PHI, LLAMA);
-
-    public OllamaSettingsPrompter(ShellPrompter prompter, CommandRunner commandRunner, SpinnerFactory spinnerFactory, Messages messages) {
+    public OllamaSettingsPrompter(ShellPrompter prompter,
+                                  CommandRunner commandRunner,
+                                  SpinnerFactory spinnerFactory,
+                                  Messages messages,
+                                  String model) {
         this.prompter = prompter;
         this.commandRunner = commandRunner;
         this.spinnerFactory = spinnerFactory;
         this.messages = messages;
+        this.model = model;
     }
 
     @Override
@@ -43,37 +42,33 @@ public class OllamaSettingsPrompter implements AiSettingsPrompter {
         } catch (OllamaException e) {
             throw new AiException(e);
         }
-        List<String> models = listModels(ollamaApi);
-        String model;
-        if (models.isEmpty() || models.stream().map(m -> m.split(":")[0]).noneMatch(recommendedModels::contains)) {
-            model = suggestPullingRecommendedModels(ollamaApi);
-        } else {
-            model = prompter.promptSelectFromList("Please choose a model", models);
+        if (!isModelInstalled(ollamaApi)) {
+            pullModelWithProgress(ollamaApi);
         }
         return new LlmSettings.Ollama(ollamaEndpoint, model);
     }
 
-    private String suggestPullingRecommendedModels(Ollama ollamaAPI) {
-        String selected = prompter.promptSelectFromList("Please choose a model for downloading", List.of(LLAMA + ":latest", PHI + ":latest"));
-        commandRunner.run(() -> pullModel(ollamaAPI, selected), CommandParameters.builder()
-            .withProgressBar(spinnerFactory.builder("Pulling " + selected).build())
-            .onSuccess(ignored -> messages.successText("The model has been successfully downloaded"))
-            .onFailure(ignored -> messages.failureText("Failed to download the model"))
-            .build());
-        return selected;
-    }
-
-    private void pullModel(Ollama ollamaAPI, String model) {
+    private boolean isModelInstalled(Ollama ollamaApi) {
         try {
-            ollamaAPI.pullModel(model);
+            return ollamaApi.listModels().stream()
+                .map(Model::getName)
+                .anyMatch(name -> name.equals(model) || name.startsWith(model + ":"));
         } catch (OllamaException e) {
             throw new AiException(e);
         }
     }
 
-    private List<String> listModels(Ollama ollamaApi) {
+    private void pullModelWithProgress(Ollama ollamaApi) {
+        commandRunner.run(() -> pullModel(ollamaApi), CommandParameters.builder()
+            .withProgressBar(spinnerFactory.builder("Pulling " + model).build())
+            .onSuccess(ignored -> messages.successText("The model has been successfully downloaded"))
+            .onFailure(ignored -> messages.failureText("Failed to download the model"))
+            .build());
+    }
+
+    private void pullModel(Ollama ollamaApi) {
         try {
-            return ollamaApi.listModels().stream().map(Model::getName).toList();
+            ollamaApi.pullModel(model);
         } catch (OllamaException e) {
             throw new AiException(e);
         }
