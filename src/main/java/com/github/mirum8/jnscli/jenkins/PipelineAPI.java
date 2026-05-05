@@ -27,14 +27,14 @@ public class PipelineAPI {
         this.objectMapper = JenkinsApiUtils.createObjectMapper();
     }
 
-    public WorkflowRun getJobBuildDescription(String jobUrl, int buildNumber) {
-        String url = jobUrl + "/" + buildNumber + WFAPI_DESCRIBE;
+    public WorkflowRun getJobBuildDescription(String jobUrl, long buildNumber) {
+        String url = JenkinsApiUtils.joinPath(jobUrl, buildNumber + WFAPI_DESCRIBE);
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilderFactory, httpClient);
         return JenkinsApiUtils.getBody(response, WorkflowRun.class, objectMapper);
     }
 
     public List<Run> getJobRuns(String jobUrl) {
-        String url = jobUrl.endsWith("/") ? jobUrl + "wfapi/runs" : jobUrl + "/wfapi/runs";
+        String url = JenkinsApiUtils.joinPath(jobUrl, "wfapi/runs");
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilderFactory, httpClient);
         try {
             return objectMapper.readValue(response.body(), new TypeReference<>() {
@@ -45,19 +45,19 @@ public class PipelineAPI {
     }
 
     public StageDescription getStageDescription(String jobUrl, long buildNumber, String stageId) {
-        String url = jobUrl + "/" + buildNumber + EXECUTION_NODE + stageId + WFAPI_DESCRIBE;
+        String url = JenkinsApiUtils.joinPath(jobUrl, buildNumber + EXECUTION_NODE + stageId + WFAPI_DESCRIBE);
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilderFactory, httpClient);
         return JenkinsApiUtils.getBody(response, StageDescription.class, objectMapper);
     }
 
     public NodeLog getNodeLog(String jobUrl, long buildNumber, String nodeId) {
-        String url = jobUrl + "/" + buildNumber + EXECUTION_NODE + nodeId + "/wfapi/log";
+        String url = JenkinsApiUtils.joinPath(jobUrl, buildNumber + EXECUTION_NODE + nodeId + "/wfapi/log");
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilderFactory, httpClient);
         return JenkinsApiUtils.getBody(response, NodeLog.class, objectMapper);
     }
 
     public NodeDescription getNodeDescription(String jobUrl, long buildNumber, String nodeId) {
-        String url = jobUrl + "/" + buildNumber + EXECUTION_NODE + nodeId + WFAPI_DESCRIBE;
+        String url = JenkinsApiUtils.joinPath(jobUrl, buildNumber + EXECUTION_NODE + nodeId + WFAPI_DESCRIBE);
         HttpResponse<String> response = JenkinsApiUtils.sendRequest(HttpMethod.GET, url, httpRequestBuilderFactory, httpClient);
         return JenkinsApiUtils.getBody(response, NodeDescription.class, objectMapper);
     }

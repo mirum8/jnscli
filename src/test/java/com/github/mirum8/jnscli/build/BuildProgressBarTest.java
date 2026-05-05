@@ -254,7 +254,7 @@ class BuildProgressBarTest {
 
     private static JenkinsAPI quietJenkinsAPI() {
         JenkinsAPI api = mock(JenkinsAPI.class);
-        when(api.getProgressiveConsoleText(ArgumentMatchers.anyString(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyLong()))
+        when(api.getProgressiveConsoleText(ArgumentMatchers.anyString(), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong()))
             .thenReturn(new ProgressiveConsoleText("", false, 0L));
         return api;
     }

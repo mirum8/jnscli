@@ -120,11 +120,17 @@ public class JenkinsApiUtils {
     }
 
     public static String buildParameterizedUrl(String jobUrl, List<String> parameters) {
-        String url = jobUrl + "/buildWithParameters";
+        String url = joinPath(jobUrl, "buildWithParameters");
         if (parameters != null && !parameters.isEmpty()) {
             url += "?" + encodeQuery(parameters);
         }
         return url;
+    }
+
+    public static String joinPath(String base, String path) {
+        String b = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        String p = path.startsWith("/") ? path : "/" + path;
+        return b + p;
     }
 
     private static HttpRequest.BodyPublisher buildMultipartBody(String fileParamName, Path filePath) throws IOException {
@@ -144,16 +150,11 @@ public class JenkinsApiUtils {
         }
     }
 
-    public static ProgressiveConsoleText getProgressiveConsoleText(String jobUrl, int buildNumber, Long start, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
-        StringBuilder urlBuilder = new StringBuilder(jobUrl)
-            .append("/").append(buildNumber)
-            .append("/logText/progressiveText");
-
+    public static ProgressiveConsoleText getProgressiveConsoleText(String jobUrl, long buildNumber, Long start, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
+        String url = joinPath(jobUrl, buildNumber + "/logText/progressiveText");
         if (start != null) {
-            urlBuilder.append("?start=").append(start);
+            url += "?start=" + start;
         }
-
-        String url = urlBuilder.toString();
         HttpResponse<String> response = sendRequest(HttpMethod.GET, url, builderFactory, httpClient);
 
         boolean hasMoreData = Boolean.parseBoolean(response.headers().firstValue("X-More-Data").orElse("false"));

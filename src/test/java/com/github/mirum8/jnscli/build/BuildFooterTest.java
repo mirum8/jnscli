@@ -17,7 +17,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -32,7 +31,7 @@ class BuildFooterTest {
     void renderHidesEverythingWhenNoActiveStageAndNoLog() {
         PipelineAPI pipelineAPI = mock(PipelineAPI.class);
         JenkinsAPI jenkinsAPI = mock(JenkinsAPI.class);
-        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyInt(), anyLong()))
+        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyLong(), anyLong()))
             .thenReturn(new ProgressiveConsoleText("", false, 0L));
         BuildFooter footer = footer(pipelineAPI, jenkinsAPI, () -> 1L);
 
@@ -80,7 +79,7 @@ class BuildFooterTest {
     void logLinesAppearBelowHeader() {
         PipelineAPI pipelineAPI = mock(PipelineAPI.class);
         JenkinsAPI jenkinsAPI = mock(JenkinsAPI.class);
-        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyInt(), anyLong()))
+        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyLong(), anyLong()))
             .thenReturn(new ProgressiveConsoleText("[INFO] one\n[INFO] two\n", false, 100L));
         BuildFooter footer = footer(pipelineAPI, jenkinsAPI, () -> 1L);
 
@@ -96,7 +95,7 @@ class BuildFooterTest {
     void logBufferDropsOldestWhenFullCapacityExceeded() {
         PipelineAPI pipelineAPI = mock(PipelineAPI.class);
         JenkinsAPI jenkinsAPI = mock(JenkinsAPI.class);
-        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyInt(), anyLong()))
+        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyLong(), anyLong()))
             .thenReturn(new ProgressiveConsoleText("a\nb\nc\nd\ne\nf\ng\n", false, 14L));
         BuildFooter footer = footer(pipelineAPI, jenkinsAPI, () -> 1L);
 
@@ -113,22 +112,21 @@ class BuildFooterTest {
     void ansiSequencesAreStrippedFromLog() {
         PipelineAPI pipelineAPI = mock(PipelineAPI.class);
         JenkinsAPI jenkinsAPI = mock(JenkinsAPI.class);
-        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyInt(), anyLong()))
+        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyLong(), anyLong()))
             .thenReturn(new ProgressiveConsoleText("[31mred[0m line\n", false, 10L));
         BuildFooter footer = footer(pipelineAPI, jenkinsAPI, () -> 1L);
 
         footer.refresh(workflowRun(stageWithId("stage-1", "Build", "IN_PROGRESS")));
 
         String logLine = footer.render().get(2);
-        assertThat(logLine).contains("red line");
-        assertThat(logLine).doesNotContain("[31m");
+        assertThat(logLine).contains("red line").doesNotContain("[31m");
     }
 
     @Test
     void emptyLinesAreSkipped() {
         PipelineAPI pipelineAPI = mock(PipelineAPI.class);
         JenkinsAPI jenkinsAPI = mock(JenkinsAPI.class);
-        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyInt(), anyLong()))
+        when(jenkinsAPI.getProgressiveConsoleText(anyString(), anyLong(), anyLong()))
             .thenReturn(new ProgressiveConsoleText("real\n\n   \nalsoreal\n", false, 20L));
         BuildFooter footer = footer(pipelineAPI, jenkinsAPI, () -> 1L);
 
@@ -154,7 +152,7 @@ class BuildFooterTest {
         clock.addAndGet(2_500L);
         footer.refresh(run);
 
-        verify(jenkinsAPI, times(1)).getProgressiveConsoleText(anyString(), anyInt(), anyLong());
+        verify(jenkinsAPI, times(1)).getProgressiveConsoleText(anyString(), anyLong(), anyLong());
     }
 
     @Test
@@ -169,7 +167,7 @@ class BuildFooterTest {
         clock.addAndGet(3_000L);
         footer.refresh(run);
 
-        verify(jenkinsAPI, times(2)).getProgressiveConsoleText(anyString(), anyInt(), anyLong());
+        verify(jenkinsAPI, times(2)).getProgressiveConsoleText(anyString(), anyLong(), anyLong());
     }
 
     @Test
@@ -187,7 +185,7 @@ class BuildFooterTest {
         footer.refresh(run);
 
         verify(pipelineAPI, times(1)).getStageDescription(anyString(), anyLong(), anyString());
-        verify(jenkinsAPI, times(2)).getProgressiveConsoleText(anyString(), anyInt(), anyLong());
+        verify(jenkinsAPI, times(2)).getProgressiveConsoleText(anyString(), anyLong(), anyLong());
     }
 
     @Test
@@ -217,7 +215,7 @@ class BuildFooterTest {
 
         footer.refresh(workflowRun(stage("compile", "SUCCESS")));
 
-        verify(jenkinsAPI, times(1)).getProgressiveConsoleText(anyString(), anyInt(), anyLong());
+        verify(jenkinsAPI, times(1)).getProgressiveConsoleText(anyString(), anyLong(), anyLong());
     }
 
     @Test
@@ -270,7 +268,7 @@ class BuildFooterTest {
 
     private static JenkinsAPI quietJenkins() {
         JenkinsAPI api = mock(JenkinsAPI.class);
-        when(api.getProgressiveConsoleText(anyString(), anyInt(), anyLong()))
+        when(api.getProgressiveConsoleText(anyString(), anyLong(), anyLong()))
             .thenReturn(new ProgressiveConsoleText("", false, 0L));
         return api;
     }
