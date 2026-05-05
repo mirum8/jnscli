@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -31,7 +32,7 @@ class AllowedJobsTest {
     @Test
     void requireAllowedIsNoopWhenUnrestricted() {
         AllowedJobs allowedJobs = new AllowedJobs(null, aliasService);
-        allowedJobs.requireAllowed("anything");
+        assertThatNoException().isThrownBy(() -> allowedJobs.requireAllowed("anything"));
     }
 
     @Test
@@ -47,8 +48,10 @@ class AllowedJobsTest {
     @Test
     void requireAllowedAcceptsAllowlistedJob() {
         AllowedJobs allowedJobs = new AllowedJobs("job-a,job-b", aliasService);
-        allowedJobs.requireAllowed("job-a");
-        allowedJobs.requireAllowed("job-b");
+        assertThatNoException().isThrownBy(() -> {
+            allowedJobs.requireAllowed("job-a");
+            allowedJobs.requireAllowed("job-b");
+        });
     }
 
     @Test

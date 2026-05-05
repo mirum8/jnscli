@@ -1,20 +1,36 @@
 package com.github.mirum8.jnscli;
 
+import com.github.mirum8.jnscli.mcp.JshellMcpApplication;
 import com.github.mirum8.jnscli.settings.SettingsProperties;
 import com.github.mirum8.jnscli.shell.OutputContext;
 import com.github.mirum8.jnscli.shell.OutputMode;
 import org.jline.utils.AttributedString;
-import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.ToolCallbackConverterAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerAnnotationScannerAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerSpecificationFactoryAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.shell.command.annotation.CommandScan;
 import org.springframework.shell.jline.PromptProvider;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {
+    McpServerAutoConfiguration.class,
+    McpServerObjectMapperAutoConfiguration.class,
+    ToolCallbackConverterAutoConfiguration.class,
+    McpServerAnnotationScannerAutoConfiguration.class,
+    McpServerSpecificationFactoryAutoConfiguration.class
+})
+@ComponentScan(excludeFilters = @ComponentScan.Filter(
+    type = FilterType.ASSIGNABLE_TYPE,
+    classes = JshellMcpApplication.class))
 @CommandScan
 @EnableConfigurationProperties(SettingsProperties.class)
 public class JshellApplication implements PromptProvider {
@@ -24,12 +40,7 @@ public class JshellApplication implements PromptProvider {
 
     public static void main(String[] args) {
         String[] cleanedArgs = extractOutputMode(args);
-        McpInvocation mcp = extractMcpMode(cleanedArgs);
-        SpringApplicationBuilder builder = new SpringApplicationBuilder(JshellApplication.class);
-        if (mcp.active) {
-            builder.profiles(MCP_PROFILE);
-        }
-        builder.run(mcp.remainingArgs.toArray(new String[0]));
+        new SpringApplicationBuilder(JshellApplication.class).run(cleanedArgs);
     }
 
     static String[] extractOutputMode(String[] args) {
@@ -54,21 +65,6 @@ public class JshellApplication implements PromptProvider {
             System.setProperty(OutputContext.MODE_PROPERTY, mode);
         }
         return rest.toArray(new String[0]);
-    }
-
-    static McpInvocation extractMcpMode(String[] args) {
-        if (args.length == 0 || !"mcp".equals(args[0])) {
-            return new McpInvocation(false, List.of(args));
-        }
-        List<String> allowed = Arrays.asList(args).subList(1, args.length);
-        if (!allowed.isEmpty()) {
-            System.setProperty(MCP_ALLOWED_JOBS_PROPERTY, String.join(",", allowed));
-        }
-        System.setProperty(OutputContext.MODE_PROPERTY, OutputMode.JSON.name().toLowerCase());
-        return new McpInvocation(true, List.of());
-    }
-
-    record McpInvocation(boolean active, List<String> remainingArgs) {
     }
 
     @Override

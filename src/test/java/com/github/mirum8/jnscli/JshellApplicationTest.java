@@ -14,7 +14,6 @@ class JshellApplicationTest {
     @AfterEach
     void clearProperty() {
         System.clearProperty(OutputContext.MODE_PROPERTY);
-        System.clearProperty(JshellApplication.MCP_ALLOWED_JOBS_PROPERTY);
     }
 
     @Test
@@ -42,30 +41,5 @@ class JshellApplicationTest {
     void rejectsUnknownMode() {
         assertThatThrownBy(() -> JshellApplication.extractOutputMode(new String[]{"--output=loud"}))
             .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void mcpModeWithoutAllowlistIsUnrestricted() {
-        JshellApplication.McpInvocation result = JshellApplication.extractMcpMode(new String[]{"mcp"});
-        assertThat(result.active()).isTrue();
-        assertThat(result.remainingArgs()).isEmpty();
-        assertThat(System.getProperty(JshellApplication.MCP_ALLOWED_JOBS_PROPERTY)).isNull();
-        assertThat(System.getProperty(OutputContext.MODE_PROPERTY)).isEqualTo("json");
-    }
-
-    @Test
-    void mcpModeWithAllowlistJoinsArgsAsCsv() {
-        JshellApplication.McpInvocation result = JshellApplication.extractMcpMode(new String[]{"mcp", "job-a", "job-b"});
-        assertThat(result.active()).isTrue();
-        assertThat(result.remainingArgs()).isEmpty();
-        assertThat(System.getProperty(JshellApplication.MCP_ALLOWED_JOBS_PROPERTY)).isEqualTo("job-a,job-b");
-    }
-
-    @Test
-    void nonMcpArgsAreLeftAlone() {
-        JshellApplication.McpInvocation result = JshellApplication.extractMcpMode(new String[]{"build", "job-a"});
-        assertThat(result.active()).isFalse();
-        assertThat(result.remainingArgs()).containsExactly("build", "job-a");
-        assertThat(System.getProperty(JshellApplication.MCP_ALLOWED_JOBS_PROPERTY)).isNull();
     }
 }

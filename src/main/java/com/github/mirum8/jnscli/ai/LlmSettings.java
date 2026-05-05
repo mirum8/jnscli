@@ -12,35 +12,16 @@ public sealed interface LlmSettings extends AiSettings {
 
     String model();
 
-    final class Ollama implements LlmSettings {
+    record Ollama(String endpoint, String model) implements LlmSettings {
 
         static final String PROPERTIES_OLLAMA_ENDPOINT = "ollama.endpoint";
         static final String DEFAULT_ENDPOINT = "http://localhost:11434";
-
-        private final String endpoint;
-        private final String model;
-
-
-        public Ollama(String endpoint, String model) {
-            this.endpoint = endpoint;
-            this.model = model;
-        }
 
         @Override
         public void writeToProps(Properties prop) {
             prop.setProperty(PROPERTIES_OLLAMA_ENDPOINT, endpoint);
             prop.setProperty(PROPERTIES_AI_PROVIDER, PROVIDERS_OLLAMA);
         }
-
-        public String endpoint() {
-            return endpoint;
-        }
-
-        @Override
-        public String model() {
-            return model;
-        }
-
     }
 
     final class OpenAI implements LlmSettings {

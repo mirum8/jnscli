@@ -75,8 +75,9 @@ class McpToolsTest {
         }).when(listService).listJobs();
 
         String result = toolsRestricted.listJobs(null);
-        assertThat(result).contains("job-a");
-        assertThat(result).doesNotContain("job-b");
+        assertThat(result)
+            .contains("job-a")
+            .doesNotContain("job-b");
     }
 
     @Test

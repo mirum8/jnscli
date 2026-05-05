@@ -242,20 +242,20 @@ Now you can use `--ai` parameter in the 'build' and 'error' commands to analyze 
 
 ### MCP Server
 
-`jns` can run as a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, exposing a small set of
-Jenkins tools to MCP-compatible LLM clients (Claude Code, Claude Desktop, Cursor, …). The same `~/.config/jns/config`
-credentials are used, so `jns connect` is the only setup required.
+A separate `jns-mcp` binary runs as a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio,
+exposing a small set of Jenkins tools to MCP-compatible LLM clients (Claude Code, Claude Desktop, Cursor, …). The same
+`~/.config/jns/config` credentials are used, so `jns connect` is the only setup required.
 
 Run unrestricted (every Jenkins job is callable):
 
 ```shell
-jns mcp
+jns-mcp
 ```
 
 Run with an allowlist (only the named jobs are callable; `list_jobs` is also filtered to this set):
 
 ```shell
-jns mcp deploy-prod build-tests publish-docs
+jns-mcp deploy-prod build-tests publish-docs
 ```
 
 Names match a Jenkins job name or an alias from `jns alias`.
@@ -281,14 +281,14 @@ Claude Code / Desktop / Cursor `mcp.json`:
 {
   "mcpServers": {
     "jenkins": {
-      "command": "/usr/local/bin/jns",
-      "args": ["mcp", "deploy-prod", "build-tests"]
+      "command": "/usr/local/bin/jns-mcp",
+      "args": ["deploy-prod", "build-tests"]
     }
   }
 }
 ```
 
-Drop the trailing job names (or pass just `["mcp"]`) for unrestricted mode.
+Drop the trailing job names (or pass an empty `args` array) for unrestricted mode.
 
 ## Output Modes (`--output`)
 

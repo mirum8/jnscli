@@ -17,6 +17,8 @@
         <java.version>21</java.version>
         <spring-shell.version>3.4.2</spring-shell.version>
         <spring-ai.version>1.1.5</spring-ai.version>
+        <jns.main.class>com.github.mirum8.jnscli.JshellApplication</jns.main.class>
+        <jns.image.name>jns</jns.image.name>
         <sonar.projectKey>jnscli</sonar.projectKey>
         <sonar.projectName>jnscli</sonar.projectName>
         <sonar.sources>src/main/java</sonar.sources>
@@ -100,7 +102,8 @@
                         <arg>-H:IncludeResources=ch/qos/logback/(classic|core)/logback-(classic|core)-version\.properties</arg>
                         <arg>--enable-url-protocols=https</arg>
                     </buildArgs>
-                    <imageName>jns</imageName>
+                    <imageName>${jns.image.name}</imageName>
+                    <mainClass>${jns.main.class}</mainClass>
                     <fallback>false</fallback>
                 </configuration>
             </plugin>
@@ -108,9 +111,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <profiles>
-                        <profile>mcp</profile>
-                    </profiles>
+                    <mainClass>${jns.main.class}</mainClass>
                 </configuration>
             </plugin>
             <plugin>
@@ -142,5 +143,28 @@
             <url>https://repo.maven.apache.org/maven2/</url>
         </repository>
     </repositories>
+
+    <profiles>
+        <profile>
+            <id>mcp-native</id>
+            <properties>
+                <jns.main.class>com.github.mirum8.jnscli.mcp.JshellMcpApplication</jns.main.class>
+                <jns.image.name>jns-mcp</jns.image.name>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <profiles>
+                                <profile>mcp</profile>
+                            </profiles>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
