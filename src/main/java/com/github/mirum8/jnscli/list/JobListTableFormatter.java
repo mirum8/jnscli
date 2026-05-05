@@ -20,11 +20,11 @@ class JobListTableFormatter {
     List<String> createJobTable(List<JobRow> jobs) {
         List<Table.Column> columns = List.of(
             new Table.Column(theme.bold("ID"), Table.Align.RIGHT, new Table.Auto()),
-            new Table.Column(theme.bold("St"), Table.Align.LEFT, new Table.Auto()),
+            new Table.Column("", Table.Align.LEFT, new Table.Auto()),
             Table.Column.truncate(theme.bold("Name"), 8)
         );
         List<List<String>> rows = jobs.stream()
-            .map(j -> List.of(String.valueOf(j.id()), j.status(), j.name()))
+            .map(j -> List.of(theme.dim(String.valueOf(j.id())), j.status(), j.name()))
             .toList();
         return table.render(columns, rows);
     }

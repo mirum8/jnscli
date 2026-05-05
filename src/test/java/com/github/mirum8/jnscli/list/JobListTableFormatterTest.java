@@ -43,7 +43,7 @@ class JobListTableFormatterTest {
 
         List<String> rows = formatter.createJobTable(jobs);
 
-        assertThat(rows.get(0)).contains("ID").contains("St").contains("Name");
+        assertThat(rows.get(0)).contains("ID").contains("Name");
     }
 
     private TerminalCapabilities capsWith(int w, boolean ansi, boolean unicode) {
