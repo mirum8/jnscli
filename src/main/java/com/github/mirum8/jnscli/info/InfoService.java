@@ -128,8 +128,8 @@ public class InfoService {
     }
 
     private BuildJson toBuildJson(BuildInfo b) {
-        java.util.Map<String, String> params = b.parameters().stream()
-            .collect(Collectors.toMap(BuildInfo.Action.Parameter::name, BuildInfo.Action.Parameter::value, (a, c) -> c, java.util.LinkedHashMap::new));
+        Map<String, String> params = new LinkedHashMap<>();
+        b.parameters().forEach(p -> params.put(p.name(), p.value()));
         return new BuildJson(
             b.number(),
             b.displayName(),
