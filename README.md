@@ -4,7 +4,9 @@
 </div>
 JnsCLI is a command-line interface for Jenkins, the popular CI/CD automation server. This tool allows you to
 interact with your Jenkins server directly from the command line, making it easier to manage jobs, builds, and server
-configurations without the need for the web interface. It also supports AI-powered error analysis to help you quickly identify and fix build errors.
+configurations without the need for the web interface. It also supports AI-powered error analysis to help you quickly
+identify and fix build errors, and can run as an MCP server so LLM agents (Claude Code, Claude Desktop, Cursor, …) can
+drive Jenkins through the same code paths.
 
 ## Table of Contents
 
@@ -19,8 +21,10 @@ configurations without the need for the web interface. It also supports AI-power
     - [Connect](#connect)
     - [Alias](#alias)
     - [Info](#info)
-  - [Error](#error)
-  - [AI Commands](#ai-commands)
+    - [Error](#error)
+    - [AI Commands](#ai-commands)
+    - [MCP Server](#mcp-server)
+- [Output Modes (`--output`)](#output-modes---output)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -101,6 +105,8 @@ echo "export PATH=\$PATH:$HOME/.local/bin/" >> $HOME/.zshrc && source $HOME/.zsh
 - Manage job aliases
 - Retrieve and analyze build errors
 - AI-powered error analysis
+- Embedded MCP server — drive Jenkins from any MCP-compatible LLM agent
+- Machine-friendly `--output json|plain|rich` for scripts and agents
 
 ## Usage
 
@@ -233,6 +239,70 @@ jns ai test
 Now you can use `--ai` parameter in the 'build' and 'error' commands to analyze build errors with AI.
 
 ![Analyze error with AI](casts/getErrorWithAi.gif)
+
+### MCP Server
+
+`jns` can run as a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, exposing a small set of
+Jenkins tools to MCP-compatible LLM clients (Claude Code, Claude Desktop, Cursor, …). The same `~/.config/jns/config`
+credentials are used, so `jns connect` is the only setup required.
+
+Run unrestricted (every Jenkins job is callable):
+
+```shell
+jns mcp
+```
+
+Run with an allowlist (only the named jobs are callable; `list_jobs` is also filtered to this set):
+
+```shell
+jns mcp deploy-prod build-tests publish-docs
+```
+
+Names match a Jenkins job name or an alias from `jns alias`.
+
+#### Tools exposed
+
+| Tool                    | What it does                                                                                  |
+|-------------------------|-----------------------------------------------------------------------------------------------|
+| `list_jobs`             | List jobs visible to this server (filtered to the allowlist when one is set).                 |
+| `get_job_info`          | Job details and recent builds.                                                                |
+| `trigger_build`         | Start a build with optional parameters. Returns immediately with the queued build number.     |
+| `abort_build`           | Abort a running build. Latest running build if no number is given.                            |
+| `get_build_errors`      | Failing-stage log for a build.                                                                |
+| `analyze_build_with_ai` | Run the configured AI provider over a failure log and return a natural-language analysis.     |
+
+Configuration-mutating commands (`connect`, `alias`, `ai configure`) are intentionally **not** exposed via MCP.
+
+#### Wiring an MCP client
+
+Claude Code / Desktop / Cursor `mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "jenkins": {
+      "command": "/usr/local/bin/jns",
+      "args": ["mcp", "deploy-prod", "build-tests"]
+    }
+  }
+}
+```
+
+Drop the trailing job names (or pass just `["mcp"]`) for unrestricted mode.
+
+## Output Modes (`--output`)
+
+All commands accept `--output=rich|plain|json` (default: `rich` on a TTY, `plain` otherwise):
+
+- `rich` — full ANSI colors, spinners, tables. Default when stdout is a terminal.
+- `plain` — no ANSI, no spinners. Auto-selected for CI / non-TTY environments.
+- `json` — machine-readable JSON only; spinners are suppressed. Use this for scripts and agent integrations.
+
+Example:
+
+```shell
+jns list --output=json | jq '.[] | select(.color == "red") | .name'
+```
 
 ## Contributing
 

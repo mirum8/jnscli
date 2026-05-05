@@ -30,6 +30,16 @@
     "allDeclaredConstructors": true
   },
   {
+    "name": "com.github.mirum8.jnscli.abort.AbortService$AbortJson",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.mcp.McpTools$TriggerBuildResult",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
     "name": "com.github.mirum8.jnscli.jenkins.ViewAll",
     "allPublicMethods": true,
     "allDeclaredConstructors": true
