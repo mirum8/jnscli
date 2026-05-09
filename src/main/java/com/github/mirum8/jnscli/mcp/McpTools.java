@@ -16,6 +16,7 @@ import com.github.mirum8.jnscli.jenkins.QueueItemLocation;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.list.ListService;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.pipeline.PipelineCreateService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mirum8.jnscli.jenkins.JenkinsApiUtils;
@@ -47,6 +48,7 @@ public class McpTools {
     private final CredentialsAPI credentialsAPI;
     private final PasswordGenerator passwordGenerator;
     private final CredsFileWriter credsFileWriter;
+    private final PipelineCreateService pipelineCreateService;
     private final ObjectMapper mapper = JenkinsApiUtils.createObjectMapper();
 
     public McpTools(ListService listService,
@@ -60,7 +62,8 @@ public class McpTools {
                     McpJsonCapture capture,
                     CredentialsAPI credentialsAPI,
                     PasswordGenerator passwordGenerator,
-                    CredsFileWriter credsFileWriter) {
+                    CredsFileWriter credsFileWriter,
+                    PipelineCreateService pipelineCreateService) {
         this.listService = listService;
         this.infoService = infoService;
         this.errorService = errorService;
@@ -73,12 +76,16 @@ public class McpTools {
         this.credentialsAPI = credentialsAPI;
         this.passwordGenerator = passwordGenerator;
         this.credsFileWriter = credsFileWriter;
+        this.pipelineCreateService = pipelineCreateService;
     }
 
     public record TriggerBuildResult(String job, int buildNumber, String url, String queueLocation) {
     }
 
     public record CredentialCreated(String id, String type, String filePath) {
+    }
+
+    public record CreatePipelineResult(String name, String url, String repo, String branch, String scriptPath, String folder) {
     }
 
     @Tool(name = "list_jobs", description = "List Jenkins jobs visible to this MCP server. If an allowlist was provided at startup, only those jobs are returned.")
@@ -244,6 +251,22 @@ public class McpTools {
         CredentialIds.validate(id);
         credentialsAPI.delete(id);
         return "Deleted credential '" + id + "'";
+    }
+
+    @Tool(name = "create_pipeline", description = "Create a Jenkins Pipeline-from-SCM job that checks out a Jenkinsfile from a Git repository.")
+    public CreatePipelineResult createPipeline(
+            @ToolParam(description = "Pipeline job name.") String name,
+            @ToolParam(description = "Git repository URL.") String repo,
+            @ToolParam(required = false, description = "Branch (default: main).") String branch,
+            @ToolParam(required = false, description = "Path to the Jenkinsfile in the repo (default: Jenkinsfile).") String scriptPath,
+            @ToolParam(required = false, description = "Optional folder path to create the pipeline in.") String folder,
+            @ToolParam(required = false, description = "Optional Jenkins credentialsId for SCM checkout.") String credentialsId,
+            @ToolParam(required = false, description = "Optional job description.") String description) {
+        allowedJobs.requireAllowed(name);
+        PipelineCreateService.CreatePipelineJson result = pipelineCreateService.createForMcp(
+            name, repo, branch, scriptPath, folder, credentialsId, description);
+        return new CreatePipelineResult(result.name(), result.url(), result.repo(),
+            result.branch(), result.scriptPath(), result.folder());
     }
 
     private String filterJobsJson(String json) {

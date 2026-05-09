@@ -53,7 +53,8 @@ class McpToolsCredentialsTest {
             new McpJsonCapture(),
             credentialsAPI,
             passwordGenerator,
-            credsFileWriter);
+            credsFileWriter,
+            mock(com.github.mirum8.jnscli.pipeline.PipelineCreateService.class));
     }
 
     @Test

@@ -15,6 +15,7 @@ import com.github.mirum8.jnscli.jenkins.QueueItemLocation;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
 import com.github.mirum8.jnscli.list.ListService;
 import com.github.mirum8.jnscli.model.JobDescriptor;
+import com.github.mirum8.jnscli.pipeline.PipelineCreateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +51,7 @@ class McpToolsTest {
     private final CredentialsAPI credentialsAPI = mock(CredentialsAPI.class);
     private final PasswordGenerator passwordGenerator = mock(PasswordGenerator.class);
     private final CredsFileWriter credsFileWriter = mock(CredsFileWriter.class);
+    private final PipelineCreateService pipelineCreateService = mock(PipelineCreateService.class);
 
     private McpTools toolsUnrestricted;
     private McpTools toolsRestricted;
@@ -58,10 +60,10 @@ class McpToolsTest {
     void setUp() {
         toolsUnrestricted = new McpTools(listService, infoService, errorService, abortService, aiService,
             jenkinsAPI, jobDescriptorProvider, new AllowedJobs(null, aliasService), capture,
-            credentialsAPI, passwordGenerator, credsFileWriter);
+            credentialsAPI, passwordGenerator, credsFileWriter, pipelineCreateService);
         toolsRestricted = new McpTools(listService, infoService, errorService, abortService, aiService,
             jenkinsAPI, jobDescriptorProvider, new AllowedJobs("job-a", aliasService), capture,
-            credentialsAPI, passwordGenerator, credsFileWriter);
+            credentialsAPI, passwordGenerator, credsFileWriter, pipelineCreateService);
     }
 
     @Test
@@ -244,6 +246,30 @@ class McpToolsTest {
         assertThat(toolsRestricted.analyzeBuildWithAi("job-a", null))
             .isEqualTo("No builds found for job-a");
         verify(errorService, never()).getErrors(any(), anyInt());
+    }
+
+    @Test
+    void createPipelineDeniesJobOutsideAllowlist() {
+        assertThatThrownBy(() -> toolsRestricted.createPipeline("job-b", "https://example.com/r.git", null, null, null, null, null))
+            .isInstanceOf(McpToolDeniedException.class);
+        verify(pipelineCreateService, never()).createForMcp(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void createPipelineMapsServiceResultToToolResult() {
+        when(pipelineCreateService.createForMcp("job-a", "https://example.com/r.git", "develop", "ci/Jenkinsfile", "team", "creds", "demo"))
+            .thenReturn(new PipelineCreateService.CreatePipelineJson("job-a",
+                "https://j/job/team/job/job-a", "https://example.com/r.git", "develop", "ci/Jenkinsfile", "team"));
+
+        McpTools.CreatePipelineResult result = toolsRestricted.createPipeline(
+            "job-a", "https://example.com/r.git", "develop", "ci/Jenkinsfile", "team", "creds", "demo");
+
+        assertThat(result.name()).isEqualTo("job-a");
+        assertThat(result.url()).isEqualTo("https://j/job/team/job/job-a");
+        assertThat(result.repo()).isEqualTo("https://example.com/r.git");
+        assertThat(result.branch()).isEqualTo("develop");
+        assertThat(result.scriptPath()).isEqualTo("ci/Jenkinsfile");
+        assertThat(result.folder()).isEqualTo("team");
     }
 
     private WorkflowJob buildableWorkflowJob(int nextBuildNumber) {

@@ -211,6 +211,72 @@ class JenkinsAPITest {
         }
     }
 
+    @Nested
+    class PipelineCreation {
+        @Test
+        void shouldCreatePipelineJobAtRoot() throws IOException, InterruptedException {
+            mockHttpResponse(200, "");
+
+            String result = jenkinsAPI.createPipelineJob(null, "demo-job",
+                "<flow-definition><url>https://example.com/r.git</url></flow-definition>");
+
+            ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+            verify(httpClient).send(captor.capture(), any());
+            HttpRequest request = captor.getValue();
+            assertThat(request.method()).isEqualTo("POST");
+            assertThat(request.uri()).hasToString(BASE_URL + "/createItem?name=demo-job");
+            assertThat(request.headers().firstValue("Content-Type")).contains("application/xml");
+            assertThat(result).isEqualTo(BASE_URL + "/job/demo-job");
+        }
+
+        @Test
+        void shouldCreatePipelineJobInsideFolder() throws IOException, InterruptedException {
+            mockHttpResponse(200, "");
+
+            String result = jenkinsAPI.createPipelineJob(BASE_URL + "/job/folder1", "demo-job",
+                "<flow-definition/>");
+
+            ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+            verify(httpClient).send(captor.capture(), any());
+            assertThat(captor.getValue().uri())
+                .hasToString(BASE_URL + "/job/folder1/createItem?name=demo-job");
+            assertThat(result).isEqualTo(BASE_URL + "/job/folder1/job/demo-job");
+        }
+
+        @Test
+        void shouldUrlEncodeJobName() throws IOException, InterruptedException {
+            mockHttpResponse(200, "");
+
+            jenkinsAPI.createPipelineJob(null, "name with space", "<flow-definition/>");
+
+            ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+            verify(httpClient).send(captor.capture(), any());
+            assertThat(captor.getValue().uri().getRawQuery()).isEqualTo("name=name+with+space");
+        }
+
+        @Test
+        void shouldUsePercentEncodingInReturnedJobUrlPath() throws IOException, InterruptedException {
+            mockHttpResponse(200, "");
+
+            String result = jenkinsAPI.createPipelineJob(null, "demo job", "<flow-definition/>");
+
+            ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+            verify(httpClient).send(captor.capture(), any());
+            assertThat(captor.getValue().uri().getRawQuery()).isEqualTo("name=demo+job");
+            assertThat(result).isEqualTo(BASE_URL + "/job/demo%20job");
+        }
+
+        @Test
+        void shouldSurfaceJenkinsErrorBody() throws IOException, InterruptedException {
+            mockHttpResponse(400, "A job already exists with the name demo-job");
+
+            assertThatThrownBy(() -> jenkinsAPI.createPipelineJob(null, "demo-job", "<flow-definition/>"))
+                .isInstanceOf(JenkinsAPIException.class)
+                .hasMessageContaining("HTTP: 400")
+                .hasMessageContaining("A job already exists");
+        }
+    }
+
     @Test
     void shouldThrowExceptionOnHttpError() throws IOException, InterruptedException {
         mockHttpResponse(404, "Not Found");

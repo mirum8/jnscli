@@ -100,6 +100,28 @@ public class JenkinsApiUtils {
         return new QueueItemLocation(location);
     }
 
+    public static HttpResponse<String> sendXmlPost(String url, String xmlBody, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
+        try {
+            HttpRequest request = builderFactory.create()
+                .url(url)
+                .method(HttpMethod.POST)
+                .header("Content-Type", "application/xml")
+                .body(HttpRequest.BodyPublishers.ofString(xmlBody, StandardCharsets.UTF_8))
+                .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 400) {
+                throw new JenkinsAPIException("HTTP: " + response.statusCode() + "; URL: " + url
+                    + (response.body() == null || response.body().isBlank() ? "" : "; body: " + response.body()));
+            }
+            return response;
+        } catch (IOException e) {
+            throw new JenkinsAPIException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new JenkinsAPIException(e);
+        }
+    }
+
     public static QueueItemLocation runJobWithFileParam(String jobUrl, String fileParamName, Path filePath, List<String> parameters, HttpRequestBuilderFactory builderFactory, HttpClient httpClient) {
         String url = buildParameterizedUrl(jobUrl, parameters);
         try {
@@ -131,6 +153,10 @@ public class JenkinsApiUtils {
         String b = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
         String p = path.startsWith("/") ? path : "/" + path;
         return b + p;
+    }
+
+    public static String encodePathSegment(String segment) {
+        return URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private static HttpRequest.BodyPublisher buildMultipartBody(String fileParamName, Path filePath) throws IOException {

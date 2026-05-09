@@ -7,8 +7,10 @@ import com.github.mirum8.jnscli.settings.Settings;
 import com.github.mirum8.jnscli.settings.SettingsService;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -101,5 +103,15 @@ public class JenkinsAPI {
 
     public ProgressiveConsoleText getProgressiveConsoleText(String jobUrl, long buildNumber, Long start) {
         return JenkinsApiUtils.getProgressiveConsoleText(jobUrl, buildNumber, start, httpRequestBuilderFactory, httpClient);
+    }
+
+    public String createPipelineJob(String folderUrl, String jobName, String xmlConfig) {
+        String base = (folderUrl == null || folderUrl.isBlank())
+            ? settingsService.readSettings().server()
+            : folderUrl;
+        String url = JenkinsApiUtils.joinPath(base,
+            "createItem?name=" + URLEncoder.encode(jobName, StandardCharsets.UTF_8));
+        JenkinsApiUtils.sendXmlPost(url, xmlConfig, httpRequestBuilderFactory, httpClient);
+        return JenkinsApiUtils.joinPath(base, "job/" + JenkinsApiUtils.encodePathSegment(jobName));
     }
 }
