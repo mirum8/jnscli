@@ -5,8 +5,11 @@ import com.github.mirum8.jnscli.ai.AiService;
 import com.github.mirum8.jnscli.alias.AliasService;
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
 import com.github.mirum8.jnscli.context.JobType;
+import com.github.mirum8.jnscli.creds.CredsFileWriter;
+import com.github.mirum8.jnscli.creds.PasswordGenerator;
 import com.github.mirum8.jnscli.diagnose.ErrorService;
 import com.github.mirum8.jnscli.info.InfoService;
+import com.github.mirum8.jnscli.jenkins.CredentialsAPI;
 import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.QueueItemLocation;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
@@ -44,6 +47,9 @@ class McpToolsTest {
     private final JobDescriptorProvider jobDescriptorProvider = mock(JobDescriptorProvider.class);
     private final AliasService aliasService = mock(AliasService.class);
     private final McpJsonCapture capture = new McpJsonCapture();
+    private final CredentialsAPI credentialsAPI = mock(CredentialsAPI.class);
+    private final PasswordGenerator passwordGenerator = mock(PasswordGenerator.class);
+    private final CredsFileWriter credsFileWriter = mock(CredsFileWriter.class);
 
     private McpTools toolsUnrestricted;
     private McpTools toolsRestricted;
@@ -51,9 +57,11 @@ class McpToolsTest {
     @BeforeEach
     void setUp() {
         toolsUnrestricted = new McpTools(listService, infoService, errorService, abortService, aiService,
-            jenkinsAPI, jobDescriptorProvider, new AllowedJobs(null, aliasService), capture);
+            jenkinsAPI, jobDescriptorProvider, new AllowedJobs(null, aliasService), capture,
+            credentialsAPI, passwordGenerator, credsFileWriter);
         toolsRestricted = new McpTools(listService, infoService, errorService, abortService, aiService,
-            jenkinsAPI, jobDescriptorProvider, new AllowedJobs("job-a", aliasService), capture);
+            jenkinsAPI, jobDescriptorProvider, new AllowedJobs("job-a", aliasService), capture,
+            credentialsAPI, passwordGenerator, credsFileWriter);
     }
 
     @Test

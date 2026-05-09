@@ -40,6 +40,26 @@
     "allDeclaredConstructors": true
   },
   {
+    "name": "com.github.mirum8.jnscli.mcp.McpTools$CredentialCreated",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Credential",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.CredentialsListResponse",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.github.mirum8.jnscli.jenkins.Crumb",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
     "name": "com.github.mirum8.jnscli.jenkins.ViewAll",
     "allPublicMethods": true,
     "allDeclaredConstructors": true

@@ -4,8 +4,13 @@ import com.github.mirum8.jnscli.JshellApplication;
 import com.github.mirum8.jnscli.abort.AbortService;
 import com.github.mirum8.jnscli.ai.AiService;
 import com.github.mirum8.jnscli.common.JobDescriptorProvider;
+import com.github.mirum8.jnscli.creds.CredentialIds;
+import com.github.mirum8.jnscli.creds.CredentialType;
+import com.github.mirum8.jnscli.creds.CredsFileWriter;
+import com.github.mirum8.jnscli.creds.PasswordGenerator;
 import com.github.mirum8.jnscli.diagnose.ErrorService;
 import com.github.mirum8.jnscli.info.InfoService;
+import com.github.mirum8.jnscli.jenkins.CredentialsAPI;
 import com.github.mirum8.jnscli.jenkins.JenkinsAPI;
 import com.github.mirum8.jnscli.jenkins.QueueItemLocation;
 import com.github.mirum8.jnscli.jenkins.WorkflowJob;
@@ -19,12 +24,16 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
 @Profile(JshellApplication.MCP_PROFILE)
 public class McpTools {
+
+    private static final String DEFAULT_SCOPE = "GLOBAL";
 
     private final ListService listService;
     private final InfoService infoService;
@@ -35,6 +44,9 @@ public class McpTools {
     private final JobDescriptorProvider jobDescriptorProvider;
     private final AllowedJobs allowedJobs;
     private final McpJsonCapture capture;
+    private final CredentialsAPI credentialsAPI;
+    private final PasswordGenerator passwordGenerator;
+    private final CredsFileWriter credsFileWriter;
     private final ObjectMapper mapper = JenkinsApiUtils.createObjectMapper();
 
     public McpTools(ListService listService,
@@ -45,7 +57,10 @@ public class McpTools {
                     JenkinsAPI jenkinsAPI,
                     JobDescriptorProvider jobDescriptorProvider,
                     AllowedJobs allowedJobs,
-                    McpJsonCapture capture) {
+                    McpJsonCapture capture,
+                    CredentialsAPI credentialsAPI,
+                    PasswordGenerator passwordGenerator,
+                    CredsFileWriter credsFileWriter) {
         this.listService = listService;
         this.infoService = infoService;
         this.errorService = errorService;
@@ -55,9 +70,15 @@ public class McpTools {
         this.jobDescriptorProvider = jobDescriptorProvider;
         this.allowedJobs = allowedJobs;
         this.capture = capture;
+        this.credentialsAPI = credentialsAPI;
+        this.passwordGenerator = passwordGenerator;
+        this.credsFileWriter = credsFileWriter;
     }
 
     public record TriggerBuildResult(String job, int buildNumber, String url, String queueLocation) {
+    }
+
+    public record CredentialCreated(String id, String type, String filePath) {
     }
 
     @Tool(name = "list_jobs", description = "List Jenkins jobs visible to this MCP server. If an allowlist was provided at startup, only those jobs are returned.")
@@ -151,6 +172,78 @@ public class McpTools {
             return "No errors found for build " + target;
         }
         return aiService.analyzeLog(log);
+    }
+
+    @Tool(name = "list_credentials", description = "List Jenkins credentials in the global system store. Returns id, typeName, and description for each. Secrets are never returned.")
+    public String listCredentials() {
+        try {
+            return mapper.writeValueAsString(credentialsAPI.list());
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize credentials", e);
+        }
+    }
+
+    @Tool(name = "create_user_pass_credential", description = "Create a Jenkins username/password credential in the global system store. The password is never returned in the response. When `random=true`, a strong password is generated and written to a file under ~/.config/jns/creds/; the returned filePath is the only way to retrieve it. When `password` is supplied, no file is written and filePath is null. Exactly one of `password` or `random=true` must be provided.")
+    public CredentialCreated createUserPassCredential(@ToolParam(description = "Credential id.") String id,
+                                                      @ToolParam(description = "Username.") String username,
+                                                      @ToolParam(required = false, description = "Password. Mutually exclusive with random=true.") String password,
+                                                      @ToolParam(required = false, description = "If true, generate a random password and write it to a file. Mutually exclusive with password.") Boolean random,
+                                                      @ToolParam(required = false, description = "Optional description.") String description,
+                                                      @ToolParam(required = false, description = "Credential scope. GLOBAL (default) or SYSTEM.") String scope) {
+        CredentialIds.validate(id);
+        boolean useRandom = Boolean.TRUE.equals(random);
+        if (useRandom && password != null) {
+            throw new IllegalArgumentException("`password` and `random=true` are mutually exclusive");
+        }
+        if (!useRandom && password == null) {
+            throw new IllegalArgumentException("Provide `password` or set `random=true`");
+        }
+        String effectiveScope = scope == null || scope.isBlank() ? DEFAULT_SCOPE : scope;
+        String effectivePassword = useRandom ? passwordGenerator.generate() : password;
+        credentialsAPI.createUserPass(id, username, effectivePassword, description, effectiveScope);
+        String filePath = null;
+        if (useRandom) {
+            Map<String, String> fields = new LinkedHashMap<>();
+            fields.put("username", username);
+            fields.put("password", effectivePassword);
+            Path written = credsFileWriter.write(id, CredentialType.USER_PASS, fields);
+            filePath = written.toString();
+        }
+        return new CredentialCreated(id, CredentialType.USER_PASS.displayName(), filePath);
+    }
+
+    @Tool(name = "create_secret_text_credential", description = "Create a Jenkins secret-text credential in the global system store. The secret is never returned in the response. When `random=true`, a strong secret is generated and written to a file under ~/.config/jns/creds/; the returned filePath is the only way to retrieve it. When `secret` is supplied, no file is written and filePath is null. Exactly one of `secret` or `random=true` must be provided.")
+    public CredentialCreated createSecretTextCredential(@ToolParam(description = "Credential id.") String id,
+                                                        @ToolParam(required = false, description = "Secret value. Mutually exclusive with random=true.") String secret,
+                                                        @ToolParam(required = false, description = "If true, generate a random secret and write it to a file. Mutually exclusive with secret.") Boolean random,
+                                                        @ToolParam(required = false, description = "Optional description.") String description,
+                                                        @ToolParam(required = false, description = "Credential scope. GLOBAL (default) or SYSTEM.") String scope) {
+        CredentialIds.validate(id);
+        boolean useRandom = Boolean.TRUE.equals(random);
+        if (useRandom && secret != null) {
+            throw new IllegalArgumentException("`secret` and `random=true` are mutually exclusive");
+        }
+        if (!useRandom && secret == null) {
+            throw new IllegalArgumentException("Provide `secret` or set `random=true`");
+        }
+        String effectiveScope = scope == null || scope.isBlank() ? DEFAULT_SCOPE : scope;
+        String effectiveSecret = useRandom ? passwordGenerator.generate() : secret;
+        credentialsAPI.createSecretText(id, effectiveSecret, description, effectiveScope);
+        String filePath = null;
+        if (useRandom) {
+            Map<String, String> fields = new LinkedHashMap<>();
+            fields.put("secret", effectiveSecret);
+            Path written = credsFileWriter.write(id, CredentialType.SECRET_TEXT, fields);
+            filePath = written.toString();
+        }
+        return new CredentialCreated(id, CredentialType.SECRET_TEXT.displayName(), filePath);
+    }
+
+    @Tool(name = "delete_credential", description = "Delete a Jenkins credential from the global system store by id.")
+    public String deleteCredential(@ToolParam(description = "Credential id.") String id) {
+        CredentialIds.validate(id);
+        credentialsAPI.delete(id);
+        return "Deleted credential '" + id + "'";
     }
 
     private String filterJobsJson(String json) {
