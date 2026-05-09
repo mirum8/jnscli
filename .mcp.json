@@ -3,6 +3,9 @@
     "maven-deps": {
       "command": "npx",
       "args": ["mcp-maven-deps"]
+    },
+    "jenkins": {
+      "command": "./target/jns-mcp"
     }
   }
 }
