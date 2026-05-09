@@ -45,11 +45,11 @@ public class StartingBean implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws IOException {
-        setupLogger();
-
         if (environment.acceptsProfiles(Profiles.of(JshellApplication.MCP_PROFILE))) {
             return;
         }
+
+        setupLogger();
 
         Settings settings = settingsService.readSettings();
         if (settings.server().isEmpty() || settings.username().isEmpty() || settings.key().isEmpty()) {
